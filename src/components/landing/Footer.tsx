@@ -1,0 +1,55 @@
+import { Link } from "react-router-dom";
+import { BackgroundPaths } from "@/components/ui/background-paths";
+
+import eduonxLogo from "@/assets/eduonx-logo.png";
+
+const footerLinks = {
+  Platform: ["AI Tutor", "Quiz Engine", "Progress Tracker", "Study Timer"],
+  Features: ["Document Learning", "Streaks & XP", "Leaderboards"],
+  Legal: ["Privacy Policy", "Terms of Service"],
+};
+
+const Footer = () => (
+  <footer className="bg-deep text-deep-foreground border-t border-interface/10 relative overflow-hidden">
+    {/* Background Paths decoration */}
+    <div className="absolute inset-0 opacity-40 pointer-events-none">
+      <BackgroundPaths />
+    </div>
+
+    <div className="container relative max-w-7xl mx-auto px-4 py-16">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        {/* Brand */}
+        <div className="col-span-2 md:col-span-1">
+          <Link to="/" className="flex items-center mb-4 w-max shrink-0 max-w-full">
+            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[200px] md:h-[260px] w-auto max-w-[300px] md:max-w-[400px] brightness-0 invert object-contain" />
+          </Link>
+          <p className="text-xs text-soft leading-relaxed">
+            AI-powered learning platform for smarter studying.
+          </p>
+        </div>
+
+        {/* Link columns */}
+        {Object.entries(footerLinks).map(([title, links]) => (
+          <div key={title}>
+            <h4 className="text-xs font-semibold uppercase tracking-widest text-soft mb-4">{title}</h4>
+            <ul className="space-y-2.5">
+              {links.map((link) => (
+                <li key={link}>
+                  <span className="text-sm text-soft/70">{link}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t border-interface/10 mt-12 pt-8 text-center">
+        <p className="text-xs text-soft/50">
+          © 2026 EduOnx. All rights reserved.
+        </p>
+      </div>
+    </div>
+  </footer>
+);
+
+export default Footer;
