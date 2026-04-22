@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, ChevronRight, Search, Calculator, Atom, FlaskConical, Leaf } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { collection, query, getDocs, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const iconMap: Record<string, React.ReactNode> = {
   calculator:     <Calculator    className="h-5 w-5 text-primary" />,
@@ -17,10 +20,51 @@ const LessonList = () => {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
 
-  // Stubbed data for Firebase migration
-  const subjects: any[] = [];
-  const topics: any[] = [];
-  const isLoading = false;
+  // Fetch topics with progress tracking
+  const { data: topics = [], isLoading } = useQuery({
+    queryKey: ["topics", user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      try {
+        const topicsSnap = await getDocs(collection(db, "topics"));
+        const topicsData = topicsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as any[];
+
+        // Fetch user progress for each topic
+        const progressSnap = await getDocs(
+          query(
+            collection(db, "lesson_progress"),
+            where("user_id", "==", user.uid)
+          )
+        );
+        const progressMap = new Map(
+          progressSnap.docs.map(doc => [doc.id.split("_")[1], doc.data()])
+        );
+
+        return topicsData.map(topic => {
+          const progress = progressMap.get(topic.id);
+          const completed = progress?.completed_lessons?.length ?? 0;
+          const total = topic.lesson_count ?? 0;
+          return {
+            ...topic,
+            pct: total > 0 ? Math.round((completed / total) * 100) : 0,
+            completedLessons: completed,
+            totalLessons: total
+          };
+        });
+      } catch (error) {
+        console.error("[LessonList] Fetch error:", error);
+        return [];
+      }
+    },
+    enabled: !!user
+  });
+
+  // Extract unique subjects
+  const subjects = Array.from(new Set(topics.map(t => t.subject)))
+    .map(subject => ({ name: subject }));
 
 
   const subjectNames = ["All", ...(subjects?.map((s) => s.name) ?? [])];

@@ -5,31 +5,31 @@ import {
   Timer, Focus, X, ChevronLeft,
 } from "lucide-react";
 import { useDeepFocus } from "@/hooks/useDeepFocus";
+import GlobalTimer from "@/components/GlobalTimer";
 
 import eduonxLogo from "@/assets/eduonx-logo.png";
 
 const sidebarLinks = [
-  { to: "/dashboard",       icon: LayoutDashboard,      label: "Dashboard" },
-  { to: "/lessons",         icon: BookOpen,              label: "Lessons" },
-  { to: "/doubts",          icon: MessageCircleQuestion, label: "Ask Doubt" },
-  { to: "/quiz",            icon: Gamepad2,              label: "Practice Quiz" },
-  { to: "/materials",       icon: Upload,                label: "Materials" },
-  { to: "/materials/tutor", icon: Bot,                   label: "AI Tutor" },
-  { to: "/timer",           icon: Timer,                 label: "Study Timer" },  // ← Added
-  { to: "/progress",        icon: BarChart3,             label: "Progress" },
-  { to: "/leaderboard",     icon: Trophy,                label: "Leaderboard" },
-  { to: "/achievements",    icon: Flame,                 label: "Achievements" },
-  { to: "/profile",         icon: User,                  label: "Profile" },
-  { to: "/settings",        icon: Settings,              label: "Settings" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/lessons", icon: BookOpen, label: "Lessons" },
+  { to: "/doubts", icon: MessageCircleQuestion, label: "Ask Doubt" },
+  { to: "/quiz", icon: Gamepad2, label: "Practice Quiz" },
+  { to: "/materials", icon: Upload, label: "Materials" },
+  { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },
+  { to: "/progress", icon: BarChart3, label: "Progress" },
+  { to: "/leaderboard", icon: Trophy, label: "Leaderboard" },
+  { to: "/achievements", icon: Flame, label: "Achievements" },
+  { to: "/profile", icon: User, label: "Profile" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 // Mobile nav shows only the 5 most important routes
 const mobileNavLinks = [
-  { to: "/dashboard",       icon: LayoutDashboard, label: "Home" },
-  { to: "/lessons",         icon: BookOpen,        label: "Lessons" },
-  { to: "/doubts",          icon: MessageCircleQuestion, label: "Doubt" },
-  { to: "/quiz",            icon: Gamepad2,        label: "Quiz" },
-  { to: "/materials/tutor", icon: Bot,             label: "AI Tutor" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Home" },
+  { to: "/lessons", icon: BookOpen, label: "Lessons" },
+  { to: "/doubts", icon: MessageCircleQuestion, label: "Doubt" },
+  { to: "/quiz", icon: Gamepad2, label: "Quiz" },
+  { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },
 ];
 
 const AppLayout = () => {
@@ -38,13 +38,14 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
+      <GlobalTimer />
 
       {/* ── Sidebar (hidden in Deep Focus Mode) ────────────────── */}
       {!isDeepFocus && (
         <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card fixed inset-y-0 left-0 z-30">
           <div className="px-6 py-8 border-b border-border flex-shrink-0">
             <Link to="/" className="flex items-center shrink-0 w-full justify-start">
-              <img src={eduonxLogo} alt="EduOnx Logo" className="h-[56px] w-auto max-w-[180px] object-contain object-left" />
+              <img src={eduonxLogo} alt="EduOnx Logo" className="h-[150px] w-auto max-w-[300px] object-contain object-left scale-[1.35] origin-left" />
             </Link>
           </div>
 
@@ -58,11 +59,10 @@ const AppLayout = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    active
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${active
                       ? "bg-primary/10 text-primary border-l-[3px] border-primary pl-[9px]"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
+                    }`}
                 >
                   <link.icon className="h-4 w-4 flex-shrink-0" />
                   {link.label}
@@ -117,9 +117,8 @@ const AppLayout = () => {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors ${
-                  active ? "text-primary" : "text-muted-foreground"
-                }`}
+                className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors ${active ? "text-primary" : "text-muted-foreground"
+                  }`}
               >
                 <link.icon className="h-5 w-5" />
                 {link.label}
@@ -131,11 +130,10 @@ const AppLayout = () => {
 
       {/* ── Main Content ─────────────────────────────────────────── */}
       <main
-        className={`flex-1 ${
-          isDeepFocus
+        className={`flex-1 ${isDeepFocus
             ? "pt-12 pb-0"                        // Deep Focus: only top-bar offset
             : "md:ml-64 pb-20 md:pb-0"            // Normal: sidebar offset + mobile nav padding
-        }`}
+          }`}
       >
         <Outlet />
       </main>

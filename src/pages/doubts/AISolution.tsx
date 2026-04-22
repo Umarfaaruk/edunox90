@@ -1,21 +1,46 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Gamepad2, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Gamepad2, Loader2, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { db } from "@/lib/firebase";
+import { addDoc, collection } from "firebase/firestore";
+import ReactMarkdown from "react-markdown";
+import { aiStream } from "@/lib/aiService";
 
-const SOLVE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/solve-doubt`;
-
+/**
+ * AISolution — Doubt Solver using OpenRouter (Gemma 3 27B)
+ *
+ * Previously used direct Gemini API calls.
+ * Now uses centralized aiStream service via OpenRouter.
+ *
+ * Includes:
+ * - AbortController for cancelling streams on unmount
+ * - Memory leak prevention
+ * - Firestore persistence for doubt history
+ */
 const AISolution = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { user } = useAuth();
   const question = (location.state as any)?.question as string | undefined;
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const streamed = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const componentMountedRef = useRef(true);
+
+  // Cleanup on unmount: abort any in-flight requests
+  useEffect(() => {
+    return () => {
+      componentMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!question) {
@@ -26,108 +51,98 @@ const AISolution = () => {
     streamed.current = true;
 
     const run = async () => {
+      // Create abort controller for this request
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        // Send user's auth token so edge function can persist
-        if (session?.access_token) {
-          headers["Authorization"] = `Bearer ${session.access_token}`;
-        } else {
-          headers["Authorization"] = `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`;
-        }
+        const systemPrompt = `You are an expert, patient tutor helping students solve doubts and understand concepts.
 
-        const resp = await fetch(SOLVE_URL, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ question }),
-        });
+When answering:
+1. Provide a clear, step-by-step explanation
+2. Use analogies and real-world examples
+3. Break down complex topics into simpler parts
+4. Highlight common mistakes students make
+5. Format with markdown: use headers (##), bullet points, numbered lists, and **bold** for emphasis
+6. If math is involved, show each step clearly
+7. End with a brief summary and suggest related topics to explore`;
 
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({ error: "AI service error" }));
-          throw new Error(err.error || `Error ${resp.status}`);
-        }
-
-        if (!resp.body) throw new Error("No response stream");
-
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
         let full = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-
-          let nl: number;
-          while ((nl = buffer.indexOf("\n")) !== -1) {
-            let line = buffer.slice(0, nl);
-            buffer = buffer.slice(nl + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (!line.startsWith("data: ")) continue;
-            const json = line.slice(6).trim();
-            if (json === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(json);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                full += content;
-                setAnswer(full);
-              }
-            } catch {
-              buffer = line + "\n" + buffer;
-              break;
+        await aiStream(
+          {
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: question },
+            ],
+            temperature: 0.7,
+            maxTokens: 4096,
+            signal: controller.signal,
+          },
+          (token) => {
+            if (componentMountedRef.current) {
+              full += token;
+              setAnswer(full);
             }
           }
+        );
+
+        if (!componentMountedRef.current) return;
+
+        if (!full.trim()) {
+          setAnswer("I couldn't generate a response. Please try rephrasing your question.");
         }
 
-        // flush
-        if (buffer.trim()) {
-          for (const raw of buffer.split("\n")) {
-            if (!raw.startsWith("data: ")) continue;
-            const json = raw.slice(6).trim();
-            if (json === "[DONE]") continue;
-            try {
-              const p = JSON.parse(json);
-              const c = p.choices?.[0]?.delta?.content;
-              if (c) { full += c; setAnswer(full); }
-            } catch {}
+        // Save doubt session + messages to Firestore for history
+        if (user && full.trim()) {
+          try {
+            const sessionRef = await addDoc(collection(db, "doubt_sessions"), {
+              user_id: user.uid,
+              question_preview: question!.substring(0, 200),
+              created_at: new Date().toISOString(),
+            });
+            await addDoc(collection(db, "doubt_messages"), {
+              doubt_session_id: sessionRef.id,
+              role: "user",
+              message_text: question,
+              created_at: new Date().toISOString(),
+            });
+            await addDoc(collection(db, "doubt_messages"), {
+              doubt_session_id: sessionRef.id,
+              role: "assistant",
+              message_text: full,
+              created_at: new Date().toISOString(),
+            });
+          } catch (saveErr) {
+            console.error("[AISolution] Save to Firestore error:", saveErr);
           }
         }
       } catch (e: any) {
-        console.error(e);
-        setError(e.message);
-        toast.error(e.message);
+        if (!componentMountedRef.current) return;
+        
+        if (e.name === "AbortError") {
+          console.log("[AISolution] 🛑 Response cancelled");
+        } else {
+          console.error("[AISolution] Error:", e);
+          setError(e.message);
+          toast.error(e.message);
+        }
       } finally {
-        setLoading(false);
+        if (componentMountedRef.current) {
+          setLoading(false);
+          abortControllerRef.current = null;
+        }
       }
     };
 
     run();
-  }, [question, navigate, session]);
+  }, [question, navigate, user]);
 
-  const renderMarkdown = (md: string) => {
-    return md.split("\n").map((line, i) => {
-      if (line.startsWith("## 💡")) return <h3 key={i} className="text-base font-semibold text-foreground mt-6 flex items-center gap-2">💡 {line.slice(5).trim()}</h3>;
-      if (line.startsWith("## ")) return <h3 key={i} className="text-lg font-semibold text-foreground mt-6">{line.slice(3)}</h3>;
-      if (line.startsWith("### ")) return <h4 key={i} className="text-base font-semibold text-foreground mt-4">{line.slice(4)}</h4>;
-      if (line.startsWith("```")) return null;
-      if (line.trim() === "") return <br key={i} />;
-      if (/^\d+\.\s/.test(line)) {
-        const num = line.match(/^(\d+)\./)?.[1];
-        const rest = line.replace(/^\d+\.\s*/, "");
-        return (
-          <div key={i} className="flex gap-3 mt-2">
-            <div className="h-6 w-6 rounded-full bg-navy text-highlight flex items-center justify-center flex-shrink-0 text-xs font-bold">{num}</div>
-            <span className="text-sm text-muted-foreground">{rest}</span>
-          </div>
-        );
-      }
-      if (line.startsWith("- ")) return <li key={i} className="text-sm text-muted-foreground ml-4 mt-1">• {line.slice(2)}</li>;
-      if (/^[A-Za-z].*[=+\-*/]/.test(line.trim()) && line.trim().length < 60) {
-        return <div key={i} className="font-mono text-sm text-accent bg-muted px-3 py-1 rounded mt-1">{line}</div>;
-      }
-      return <p key={i} className="text-sm text-muted-foreground mt-1 leading-relaxed">{line}</p>;
-    });
+  const cancelStream = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setLoading(false);
+      toast.info("Response cancelled");
+    }
   };
 
   return (
@@ -147,13 +162,22 @@ const AISolution = () => {
         <div className="flex items-center gap-2 pb-3 border-b border-border">
           <Sparkles className="h-5 w-5 text-accent" />
           <span className="font-semibold text-sm text-foreground">Step-by-Step Solution</span>
-          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-auto" />}
+          {loading && (
+            <div className="ml-auto flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <button onClick={cancelStream} className="text-xs text-muted-foreground hover:text-foreground" title="Cancel response">
+                <Square className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : answer ? (
-          <div className="space-y-1">{renderMarkdown(answer)}</div>
+          <div className="prose prose-sm max-w-none dark:prose-invert">
+            <ReactMarkdown>{answer}</ReactMarkdown>
+          </div>
         ) : loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
             <Loader2 className="h-5 w-5 animate-spin" /> Thinking...

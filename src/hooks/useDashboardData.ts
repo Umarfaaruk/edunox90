@@ -81,8 +81,11 @@ export const useDashboardData = () => {
           todaySeconds: 0,
           weekSeconds: 0,
           monthSeconds: 0,
+          prevWeekSeconds: 0,
           chartData: shortDay.slice(1).concat(shortDay[0]).map((day) => ({ day, hours: 0 })),
-          dayWiseRecords: [] as Array<{ date: string; minutes: number }>,
+          dayWiseRecords: [] as Array<{ date: string; minutes: number; sessions: number }>,
+          sessionCount: 0,
+          avgSessionMinutes: 0,
         };
       }
 
@@ -91,13 +94,17 @@ export const useDashboardData = () => {
       const now = new Date();
       const todayKey = toDateKey(now);
       const weekStart = startOfWeek(now).getTime();
+      const prevWeekStart = weekStart - 7 * DAY_MS;
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
       const sevenDaysAgo = now.getTime() - 6 * DAY_MS;
 
       let todaySeconds = 0;
       let weekSeconds = 0;
       let monthSeconds = 0;
-      const byDate = new Map<string, number>();
+      let prevWeekSeconds = 0;
+      let totalSessions = 0;
+      let totalDurationAll = 0;
+      const byDate = new Map<string, { seconds: number; sessions: number }>();
 
       snapshot.forEach((item) => {
         const data = item.data();
@@ -106,28 +113,51 @@ export const useDashboardData = () => {
         if (!date || Number.isNaN(date.getTime())) return;
 
         const key = toDateKey(date);
-        byDate.set(key, (byDate.get(key) ?? 0) + duration);
+        const existing = byDate.get(key) || { seconds: 0, sessions: 0 };
+        byDate.set(key, {
+          seconds: existing.seconds + duration,
+          sessions: existing.sessions + 1,
+        });
+
+        totalSessions++;
+        totalDurationAll += duration;
 
         if (key === todayKey) todaySeconds += duration;
         if (date.getTime() >= weekStart) weekSeconds += duration;
+        if (date.getTime() >= prevWeekStart && date.getTime() < weekStart) prevWeekSeconds += duration;
         if (date.getTime() >= monthStart) monthSeconds += duration;
       });
 
       const chartData = Array.from({ length: 7 }, (_, idx) => {
-        const date = new Date(sevenDaysAgo + idx * DAY_MS);
+        const date = new Date(weekStart + idx * DAY_MS);
         const key = toDateKey(date);
         return {
           day: shortDay[date.getDay()],
-          hours: Number(((byDate.get(key) ?? 0) / 3600).toFixed(1)),
+          hours: Number(((byDate.get(key)?.seconds ?? 0) / 3600).toFixed(1)),
         };
       });
 
       const dayWiseRecords = Array.from(byDate.entries())
-        .map(([date, seconds]) => ({ date, minutes: Math.round(seconds / 60) }))
+        .map(([date, data]) => ({
+          date,
+          minutes: Math.round(data.seconds / 60),
+          sessions: data.sessions,
+        }))
         .sort((a, b) => b.date.localeCompare(a.date))
         .slice(0, 30);
 
-      return { todaySeconds, weekSeconds, monthSeconds, chartData, dayWiseRecords };
+      const avgSessionMinutes = totalSessions > 0 ? Math.round(totalDurationAll / 60 / totalSessions) : 0;
+
+      return {
+        todaySeconds,
+        weekSeconds,
+        monthSeconds,
+        prevWeekSeconds,
+        chartData,
+        dayWiseRecords,
+        sessionCount: totalSessions,
+        avgSessionMinutes,
+      };
     },
     enabled: !!user,
   });
@@ -153,8 +183,85 @@ export const useDashboardData = () => {
     enabled: !!user,
   });
 
-  const continueLearning: any[] = [];
-  const weakTopics: any[] = [];
+  // Get weak topics (quiz topics with below-average scores)
+  const { data: weakTopics = [] } = useQuery({
+    queryKey: ["weakTopics", user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      try {
+        const q = query(collection(db, "quiz_attempts"), where("user_id", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+        const topicScores: Record<string, { total: number; count: number; totalQuestions: number }> = {};
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const topic = data.topic_title || "General";
+          if (!topicScores[topic]) {
+            topicScores[topic] = { total: 0, count: 0, totalQuestions: 0 };
+          }
+          topicScores[topic].total += data.score || 0;
+          topicScores[topic].totalQuestions += data.total_questions || 0;
+          topicScores[topic].count += 1;
+        });
+
+        const overallAvg = Object.values(topicScores).length > 0
+          ? Object.values(topicScores).reduce((sum, t) => sum + (t.totalQuestions > 0 ? (t.total / t.totalQuestions) * 100 : 0), 0) /
+            Object.keys(topicScores).length
+          : 0;
+
+        return Object.entries(topicScores)
+          .map(([topic, scores]) => {
+            const avgPct = scores.totalQuestions > 0 ? Math.round((scores.total / scores.totalQuestions) * 100) : 0;
+            return { topic, avgScore: avgPct };
+          })
+          .filter((t) => t.avgScore < overallAvg)
+          .sort((a, b) => a.avgScore - b.avgScore)
+          .slice(0, 3);
+      } catch (error) {
+        console.error("[Dashboard] Weak topics query failed:", error);
+        return [];
+      }
+    },
+    enabled: !!user,
+  });
+
+  // Get continue learning (incomplete lessons or recent quiz topics)
+  const { data: continueLearning = [] } = useQuery({
+    queryKey: ["continueLearning", user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      try {
+        const q = query(
+          collection(db, "quiz_attempts"),
+          where("user_id", "==", user.uid),
+        );
+        const querySnapshot = await getDocs(q);
+        const topics = new Set<string>();
+        const topicMap: Record<string, any> = {};
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const topicTitle = data.topic_title || data.topic;
+          if (topicTitle && !topics.has(topicTitle)) {
+            topics.add(topicTitle);
+            const pct = data.total_questions > 0 ? Math.round((data.score / data.total_questions) * 100) : 0;
+            topicMap[topicTitle] = {
+              id: data.topic_id || doc.id,
+              title: topicTitle,
+              subject: topicTitle,
+              pct,
+            };
+          }
+        });
+
+        return Object.values(topicMap).slice(0, 3);
+      } catch (error) {
+        console.error("[Dashboard] Continue learning query failed:", error);
+        return [];
+      }
+    },
+    enabled: !!user,
+  });
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -173,11 +280,15 @@ export const useDashboardData = () => {
       todaySeconds: 0,
       weekSeconds: 0,
       monthSeconds: 0,
+      prevWeekSeconds: 0,
       chartData: shortDay.slice(1).concat(shortDay[0]).map((day) => ({ day, hours: 0 })),
       dayWiseRecords: [],
+      sessionCount: 0,
+      avgSessionMinutes: 0,
     },
-    continueLearning,
-    weakTopics,
+    continueLearning: continueLearning ?? [],
+    weakTopics: weakTopics ?? [],
     greeting: greeting(),
+    isLoading: profile === undefined || totalXp === undefined || progressAnalytics === undefined,
   };
 };

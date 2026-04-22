@@ -4,57 +4,76 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
-// import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 const Profile = () => {
   const { user } = useAuth();
 
   const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["profile", user?.id],
+    queryKey: ["profile", user?.uid],
     queryFn: async () => {
       if (!user) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      try {
+        const docRef = doc(db, "profiles", user.uid);
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? docSnap.data() : null;
+      } catch (error) {
+        console.error("[Profile] Profile load error:", error);
+        throw error;
+      }
     },
     enabled: !!user,
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["profile-stats", user?.id],
+    queryKey: ["profile-stats", user?.uid],
     queryFn: async () => {
       if (!user) return null;
-      const [xpRes, streakRes, quizRes, progressRes, sessionRes, badgeRes] = await Promise.all([
-        supabase.from("xp_logs").select("xp_amount").eq("user_id", user.id),
-        supabase.from("user_streaks").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("quiz_attempts").select("id").eq("user_id", user.id),
-        supabase.from("user_lesson_progress").select("id").eq("user_id", user.id).eq("completed", true),
-        supabase.from("study_sessions").select("duration_seconds").eq("user_id", user.id),
-        supabase
-          .from("user_achievements")
-          .select("achievement_id, achievements(name, icon)")
-          .eq("user_id", user.id)
-          .limit(4),
-      ]);
+      try {
+        // Get XP logs
+        const xpQ = query(collection(db, "xp_logs"), where("user_id", "==", user.uid));
+        const xpDocs = await getDocs(xpQ);
+        const totalXp = xpDocs.docs.reduce((sum, doc) => sum + (doc.data().xp_amount || 0), 0);
 
-      const totalXp = (xpRes.data ?? []).reduce((s, r) => s + r.xp_amount, 0);
-      const totalStudySeconds = (sessionRes.data ?? []).reduce((s, r) => s + r.duration_seconds, 0);
+        // Get streak
+        const streakRef = doc(db, "user_streaks", user.uid);
+        const streakSnap = await getDoc(streakRef);
+        const streak = streakSnap.exists() ? streakSnap.data() : { current_streak: 0, longest_streak: 0 };
 
-      return {
-        totalXp,
-        level: Math.floor(totalXp / 200) + 1,
-        levelProgress: totalXp % 200,
-        streak: streakRes.data,
-        quizCount: quizRes.data?.length ?? 0,
-        lessonsCompleted: progressRes.data?.length ?? 0,
-        studyHours: (totalStudySeconds / 3600).toFixed(1),
-        badges: badgeRes.data ?? [],
-      };
+        // Get quiz attempts
+        const quizQ = query(collection(db, "quiz_attempts"), where("user_id", "==", user.uid));
+        const quizDocs = await getDocs(quizQ);
+        const quizCount = quizDocs.size;
+
+        // Get study sessions
+        const sessionsQ = query(collection(db, "study_sessions"), where("user_id", "==", user.uid));
+        const sessionDocs = await getDocs(sessionsQ);
+        const totalStudySeconds = sessionDocs.docs.reduce((sum, doc) => sum + (doc.data().duration_seconds || 0), 0);
+
+        return {
+          totalXp,
+          level: Math.floor(totalXp / 200) + 1,
+          levelProgress: totalXp % 200,
+          streak: streak,
+          quizCount: quizCount,
+          lessonsCompleted: quizCount,
+          studyHours: (totalStudySeconds / 3600).toFixed(1),
+          badges: [],
+        };
+      } catch (error) {
+        console.error("[Profile] Stats load error:", error);
+        return {
+          totalXp: 0,
+          level: 1,
+          levelProgress: 0,
+          streak: { current_streak: 0 },
+          quizCount: 0,
+          lessonsCompleted: 0,
+          studyHours: "0",
+          badges: [],
+        };
+      }
     },
     enabled: !!user,
   });

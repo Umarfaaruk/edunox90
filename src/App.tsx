@@ -1,4 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -27,17 +26,19 @@ import DoubtSession from "./pages/doubts/DoubtSession";
 import TopicSelection from "./pages/quiz/TopicSelection";
 import QuizPage from "./pages/quiz/QuizPage";
 import QuizResults from "./pages/quiz/QuizResults";
-import StudyTimerPage from "./pages/timer/StudyTimer";
-import SessionSummary from "./pages/timer/SessionSummary";
+
 import MaterialUpload from "./pages/materials/MaterialUpload";
 import AILearning from "./pages/materials/AILearning";
 import AITutor from "./pages/materials/AITutor";
 import ProgressDashboard from "./pages/progress/ProgressDashboard";
+import TimerPage from "./pages/timer/TimerPage";
 import Leaderboard from "./pages/social/Leaderboard";
 import Friends from "./pages/social/Friends";
 import Achievements from "./pages/social/Achievements";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import LessonList from "./pages/lessons/LessonList";
+import LessonViewer from "./pages/lessons/LessonViewer";
 import AdminPanel from "./pages/admin/AdminPanel";
 
 const queryClient = new QueryClient({
@@ -52,7 +53,6 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
@@ -87,6 +87,8 @@ const App = () => (
               {/* Protected: App screens with sidebar layout */}
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                <Route path="/lessons" element={<ErrorBoundary><LessonList /></ErrorBoundary>} />
+                <Route path="/lessons/:id" element={<ErrorBoundary><LessonViewer /></ErrorBoundary>} />
                 <Route path="/doubts" element={<ErrorBoundary><DoubtInput /></ErrorBoundary>} />
                 <Route path="/doubts/solution" element={<ErrorBoundary><AISolution /></ErrorBoundary>} />
                 <Route path="/doubts/history" element={<ErrorBoundary><DoubtHistory /></ErrorBoundary>} />
@@ -94,12 +96,11 @@ const App = () => (
                 <Route path="/quiz" element={<ErrorBoundary><TopicSelection /></ErrorBoundary>} />
                 <Route path="/quiz/:id" element={<ErrorBoundary><QuizPage /></ErrorBoundary>} />
                 <Route path="/quiz/:id/results" element={<ErrorBoundary><QuizResults /></ErrorBoundary>} />
-                <Route path="/timer" element={<ErrorBoundary><StudyTimerPage /></ErrorBoundary>} />
-                <Route path="/timer/summary" element={<ErrorBoundary><SessionSummary /></ErrorBoundary>} />
                 <Route path="/materials" element={<ErrorBoundary><MaterialUpload /></ErrorBoundary>} />
                 <Route path="/materials/learn/:id" element={<ErrorBoundary><AILearning /></ErrorBoundary>} />
                 <Route path="/materials/tutor" element={<ErrorBoundary><AITutor /></ErrorBoundary>} />
                 <Route path="/progress" element={<ErrorBoundary><ProgressDashboard /></ErrorBoundary>} />
+                <Route path="/timer" element={<ErrorBoundary><TimerPage /></ErrorBoundary>} />
                 <Route path="/leaderboard" element={<ErrorBoundary><Leaderboard /></ErrorBoundary>} />
                 <Route path="/friends" element={<ErrorBoundary><Friends /></ErrorBoundary>} />
                 <Route path="/achievements" element={<ErrorBoundary><Achievements /></ErrorBoundary>} />

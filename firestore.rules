@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ── Helper functions ──────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isUser(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_admin == true;
+    }
+    
+    // ── /users collection ─────────────────────────────
+    match /users/{userId} {
+      // Users can read their own profile, admins can read all
+      allow read: if isUser(userId) || isAdmin();
+      
+      // Users can write their own profile
+      allow write: if isUser(userId);
+      
+      // Subcollections
+      match /profile_data/{document=**} {
+        allow read, write: if isUser(userId);
+      }
+    }
+    
+    // ── /study_sessions collection ────────────────────
+    match /study_sessions/{sessionId} {
+      allow read: if isUser(resource.data.user_id);
+      allow create, update: if isUser(request.resource.data.user_id);
+      allow delete: if isUser(resource.data.user_id) || isAdmin();
+    }
+    
+    // ── /xp_logs collection ───────────────────────────
+    match /xp_logs/{logId} {
+      allow read: if isUser(resource.data.user_id);
+      allow create: if isUser(request.resource.data.user_id);
+      allow update, delete: if isUser(resource.data.user_id) || isAdmin();
+    }
+    
+    // ── /user_streaks collection ──────────────────────
+    match /user_streaks/{userId} {
+      allow read: if isUser(userId);
+      allow write: if isUser(userId);
+    }
+    
+    // ── /lesson_progress collection ───────────────────
+    match /lesson_progress/{progressId} {
+      allow read, write: if isUser(resource.data.user_id) || 
+                            isUser(request.resource.data.user_id);
+    }
+    
+    // ── /quiz_attempts collection ─────────────────────
+    match /quiz_attempts/{attemptId} {
+      allow read: if isUser(resource.data.user_id);
+      allow create, write: if isUser(request.resource.data.user_id);
+    }
+    
+    // ── /topics collection (public) ────────────────────
+    match /topics/{topicId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // ── /lessons collection (public) ───────────────────
+    match /lessons/{lessonId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // ── /friends_list collection ──────────────────────
+    match /friends_list/{friendId} {
+      allow read: if isUser(resource.data.requester_id) || 
+                     isUser(resource.data.addressee_id);
+      allow create: if isUser(request.resource.data.requester_id);
+      allow update: if isUser(resource.data.requester_id) || 
+                       isUser(resource.data.addressee_id);
+      allow delete: if isUser(resource.data.requester_id) || 
+                       isUser(resource.data.addressee_id) || isAdmin();
+    }
+    
+    // ── /doubt_sessions collection ────────────────────
+    match /doubt_sessions/{sessionId} {
+      allow read: if isUser(resource.data.user_id);
+      allow create: if isUser(request.resource.data.user_id);
+      allow update, delete: if isUser(resource.data.user_id);
+    }
+    
+    // ── /analytics collection (aggregated data) ───────
+    match /analytics/{userId} {
+      allow read: if isUser(userId);
+      allow write: if isUser(userId) || isAdmin();
+    }
+    
+    // ── /topic_progress collection ────────────────────
+    match /topic_progress/{progressId} {
+      allow read: if isUser(resource.data.user_id);
+      allow write: if isUser(request.resource.data.user_id);
+    }
+    
+    // ── /profiles collection ──────────────────────────
+    // User profile data (XP, study hours, etc.)
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isUser(userId);
+    }
+    
+    // ── /materials collection ─────────────────────────
+    // Uploaded study materials (PDFs, docs, etc.)
+    match /materials/{materialId} {
+      allow read: if isUser(resource.data.user_id);
+      allow create: if isUser(request.resource.data.user_id);
+      allow update: if isUser(resource.data.user_id);
+      allow delete: if isUser(resource.data.user_id);
+    }
+    
+    // ── /analytics_snapshots collection ────────────────
+    // Daily aggregated analytics data
+    match /analytics_snapshots/{snapshotId} {
+      allow read: if isUser(resource.data.user_id);
+      allow write: if isUser(request.resource.data.user_id);
+    }
+    
+    // ── /quiz_results collection ──────────────────────
+    match /quiz_results/{resultId} {
+      allow read: if isUser(resource.data.user_id);
+      allow write: if isUser(request.resource.data.user_id);
+    }
+    
+    // ── Deny all by default ───────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

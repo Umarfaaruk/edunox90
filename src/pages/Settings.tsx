@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Bell, User, LogOut, Shield, CreditCard, Puzzle, Bot } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { useQuery } from "@tanstack/react-query";
 
 const tabs = [
   { key: "profile", icon: User, label: "Profile" },
@@ -13,11 +18,39 @@ const tabs = [
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
-  const [name, setName] = useState("John Doe");
-  const [email, setEmail] = useState("john@example.com");
+
+  // Load profile from Firebase
+  const { data: profile } = useQuery({
+    queryKey: ["settings-profile", user?.uid],
+    queryFn: async () => {
+      if (!user) return null;
+      const docRef = doc(db, "profiles", user.uid);
+      const snap = await getDoc(docRef);
+      return snap.exists() ? snap.data() : null;
+    },
+    enabled: !!user,
+  });
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [university, setUniversity] = useState("");
   const [major, setMajor] = useState("");
+
+  // Initialize form fields from profile data
+  useEffect(() => {
+    if (profile) {
+      setName(profile.full_name || user?.displayName || "");
+      setEmail(user?.email || "");
+      setUniversity(profile.university || "");
+      setMajor(profile.major || "");
+    } else if (user) {
+      setName(user.displayName || "");
+      setEmail(user.email || "");
+    }
+  }, [profile, user]);
+
   const [notifications, setNotifications] = useState({ email: true, push: true, streak: true });
   const [tutorTone, setTutorTone] = useState<"academic" | "friendly" | "direct">("academic");
   const [socraticMethod, setSocraticMethod] = useState(true);
@@ -190,7 +223,15 @@ const Settings = () => {
           {/* Sign out */}
           <Button
             variant="outline"
-            onClick={() => navigate("/")}
+            onClick={async () => {
+              try {
+                await signOut();
+                toast.success("Signed out successfully");
+                navigate("/login");
+              } catch (error) {
+                toast.error("Failed to sign out");
+              }
+            }}
             className="w-full gap-2 border-destructive text-destructive hover:bg-destructive/10"
           >
             <LogOut className="h-4 w-4" /> Sign Out

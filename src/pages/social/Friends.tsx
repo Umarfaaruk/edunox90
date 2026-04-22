@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Users, UserPlus, Search, Check, X, Loader2, UserMinus } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 
 const Friends = () => {
   const { user } = useAuth();
@@ -14,11 +15,61 @@ const Friends = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // Stubbed data
-  const friendRecords: any[] = [];
-  const friendUserIds: string[] = [];
-  const friendProfiles: any[] = [];
-  const friendXp: Record<string, number> = {};
+  // Fetch friend records
+  const { data: friendRecords = [] } = useQuery({
+    queryKey: ["friendRecords", user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, "friends_list"),
+            where("requester_id", "==", user.uid)
+          )
+        );
+        const records1 = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const snap2 = await getDocs(
+          query(
+            collection(db, "friends_list"),
+            where("addressee_id", "==", user.uid)
+          )
+        );
+        const records2 = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        return [...records1, ...records2] as any[];
+      } catch (error) {
+        console.error("[Friends] Fetch records error:", error);
+        return [];
+      }
+    },
+    enabled: !!user
+  });
+
+  // Fetch friend profiles
+  const friendUserIds = friendRecords.flatMap(f => [
+    f.status === "accepted" ? (f.requester_id === user?.uid ? f.addressee_id : f.requester_id) : ""
+  ]).filter(Boolean);
+
+  const { data: friendProfiles = [] } = useQuery({
+    queryKey: ["friendProfiles", ...friendUserIds],
+    queryFn: async () => {
+      if (friendUserIds.length === 0) return [];
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, "users"),
+            where("__name__", "in", friendUserIds.slice(0, 10))
+          )
+        );
+        return snap.docs.map(doc => ({ user_id: doc.id, ...doc.data() })) as any[];
+      } catch (error) {
+        console.error("[Friends] Fetch profiles error:", error);
+        return [];
+      }
+    },
+    enabled: friendUserIds.length > 0
+  });
 
   const profileMap = new Map((friendProfiles ?? []).map((p) => [p.user_id, p]));
 
@@ -36,23 +87,58 @@ const Friends = () => {
   const handleSearch = async () => {
     if (!search.trim() || !user) return;
     setSearching(true);
-    // Stubbed search
-    setSearchResults([]);
-    setSearching(false);
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, "users"),
+          where("full_name", ">=", search),
+          where("full_name", "<=", search + "\uf8ff")
+        )
+      );
+      setSearchResults(snap.docs.map(doc => ({ user_id: doc.id, ...doc.data() })));
+    } catch (error) {
+      console.error("[Friends] Search error:", error);
+      toast.error("Search failed");
+    } finally {
+      setSearching(false);
+    }
   };
 
-  const sendRequest = async (addresseeId: string) => {
-    if (!user) return;
-    toast.success("Friend request sent!");
-  };
+  const sendRequest = useMutation({
+    mutationFn: async (addresseeId: string) => {
+      if (!user) return;
+      await addDoc(collection(db, "friends_list"), {
+        requester_id: user.uid,
+        addressee_id: addresseeId,
+        status: "pending",
+        created_at: new Date()
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["friendRecords", user?.uid] });
+      toast.success("Friend request sent!");
+    }
+  });
 
-  const acceptRequest = async (friendId: string) => {
-    toast.success("Friend request accepted!");
-  };
+  const acceptRequest = useMutation({
+    mutationFn: async (friendId: string) => {
+      await updateDoc(doc(db, "friends_list", friendId), { status: "accepted" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["friendRecords", user?.uid] });
+      toast.success("Friend request accepted!");
+    }
+  });
 
-  const removeFriend = async (friendId: string) => {
-    toast.success("Removed");
-  };
+  const removeFriend = useMutation({
+    mutationFn: async (friendId: string) => {
+      await deleteDoc(doc(db, "friends_list", friendId));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["friendRecords", user?.uid] });
+      toast.success("Removed");
+    }
+  });
 
   // Check if a user is already a friend or has pending request
   const existingIds = new Set((friendRecords ?? []).flatMap((f) => [f.requester_id, f.addressee_id]));
@@ -79,7 +165,7 @@ const Friends = () => {
             className="pl-10 h-10"
           />
         </div>
-        <Button onClick={handleSearch} disabled={searching} className="bg-navy text-highlight hover:bg-navy/90 gap-2">
+        <Button onClick={() => handleSearch()} disabled={searching} className="bg-navy text-highlight hover:bg-navy/90 gap-2">
           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Search
         </Button>
       </div>
@@ -99,7 +185,7 @@ const Friends = () => {
               {existingIds.has(p.user_id) ? (
                 <span className="text-xs text-muted-foreground">Already connected</span>
               ) : (
-                <Button size="sm" onClick={() => sendRequest(p.user_id)} className="bg-accent text-accent-foreground text-xs gap-1">
+                <Button size="sm" onClick={() => sendRequest.mutate(p.user_id)} disabled={sendRequest.isPending} className="bg-accent text-accent-foreground text-xs gap-1">
                   <UserPlus className="h-3 w-3" /> Add
                 </Button>
               )}
@@ -123,10 +209,10 @@ const Friends = () => {
                   <div className="text-sm font-medium text-foreground">{profile?.full_name || "Unknown"}</div>
                   <div className="text-xs text-muted-foreground">Wants to be friends</div>
                 </div>
-                <Button size="sm" onClick={() => acceptRequest(f.id)} className="bg-accent text-accent-foreground text-xs gap-1">
+                <Button size="sm" onClick={() => acceptRequest.mutate(f.id)} disabled={acceptRequest.isPending} className="bg-accent text-accent-foreground text-xs gap-1">
                   <Check className="h-3 w-3" /> Accept
                 </Button>
-                <button onClick={() => removeFriend(f.id)} className="text-muted-foreground hover:text-destructive">
+                <button onClick={() => removeFriend.mutate(f.id)} disabled={removeFriend.isPending} className="text-muted-foreground hover:text-destructive disabled:opacity-50">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -146,9 +232,8 @@ const Friends = () => {
           </div>
         ) : (
           accepted.map((f) => {
-            const friendId = f.requester_id === user?.id ? f.addressee_id : f.requester_id;
+            const friendId = f.requester_id === user?.uid ? f.addressee_id : f.requester_id;
             const profile = profileMap.get(friendId);
-            const xp = (friendXp ?? {})[friendId] ?? 0;
             return (
               <div key={f.id} className="flex items-center gap-4 bg-card border border-border rounded-xl px-4 py-3">
                 <div className="h-10 w-10 rounded-full bg-navy flex items-center justify-center text-highlight text-sm font-bold">
@@ -157,8 +242,7 @@ const Friends = () => {
                 <div className="flex-1">
                   <div className="text-sm font-medium text-foreground">{profile?.full_name || "Unknown"}</div>
                 </div>
-                <span className="text-sm font-bold text-accent">{xp.toLocaleString()} XP</span>
-                <button onClick={() => removeFriend(f.id)} className="text-muted-foreground hover:text-destructive" title="Remove friend">
+                <button onClick={() => removeFriend.mutate(f.id)} disabled={removeFriend.isPending} className="text-muted-foreground hover:text-destructive disabled:opacity-50" title="Remove friend">
                   <UserMinus className="h-4 w-4" />
                 </button>
               </div>

@@ -11,6 +11,7 @@ import { auth } from "@/lib/firebase";
 
 interface AuthContextType {
   user: User | null;
+  session: User | null; // Alias for user (Firebase auth session)
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -52,11 +53,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await firebaseSignOut(auth);
+    try {
+      // Clear all session data from localStorage to prevent data leakage
+      const keys = Object.keys(localStorage);
+      keys.forEach((key) => {
+        if (key.startsWith("session_")) {
+          localStorage.removeItem(key);
+        }
+      });
+      // Sign out from Firebase
+      await firebaseSignOut(auth);
+    } catch (error: any) {
+      console.error("Sign out error:", error);
+      throw error;
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session: user, loading, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

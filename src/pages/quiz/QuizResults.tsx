@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Trophy, RotateCcw, ArrowRight, Target, TrendingUp, Zap } from "lucide-react";
 import { db } from "@/lib/firebase";
-// import { supabase } from "@/integrations/supabase/client";
+import { addDoc, collection, doc, setDoc, getDoc, increment, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 
 const QuizResults = () => {
@@ -29,65 +29,78 @@ const QuizResults = () => {
     saved.current = true;
 
     const save = async () => {
-      // Save quiz attempt
-      await supabase.from("quiz_attempts").insert({
-        user_id: user.id,
-        topic_id: topicId || null,
-        quiz_id: quizId || null,
-        topic_title: topicTitle,
-        score,
-        total_questions: total,
-        xp_awarded: xp,
-      });
+      try {
+        // Save quiz attempt to Firestore
+        await addDoc(collection(db, "quiz_attempts"), {
+          user_id: user.uid,
+          topic_id: topicId || null,
+          quiz_id: quizId || null,
+          topic_title: topicTitle,
+          score,
+          total_questions: total,
+          xp_awarded: xp,
+          created_at: serverTimestamp(),
+        });
 
-      // Award XP
-      await supabase.from("xp_logs").insert({
-        user_id: user.id,
-        source_type: "quiz",
-        xp_amount: xp,
-      });
-
-      // Update topic_progress if we have a topicId
-      if (topicId) {
-        const scorePct = total > 0 ? (score / total) * 100 : 0;
-
-        // Check existing progress
-        const { data: existing } = await supabase
-          .from("topic_progress")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("topic_id", topicId)
-          .maybeSingle();
-
-        if (existing) {
-          const newCount = existing.quiz_count + 1;
-          const newAvg = ((Number(existing.avg_quiz_score) * existing.quiz_count) + scorePct) / newCount;
-          // Mastery = weighted avg of quiz scores and lesson completion
-          const mastery = Math.round(newAvg * 0.7 + (existing.lessons_completed > 0 ? 30 : 0));
-
-          await supabase.from("topic_progress").update({
-            quiz_count: newCount,
-            avg_quiz_score: Math.round(newAvg),
-            mastery_score: mastery,
-            last_updated: new Date().toISOString(),
-          }).eq("id", existing.id);
-        } else {
-          const mastery = Math.round(scorePct * 0.7);
-          await supabase.from("topic_progress").insert({
-            user_id: user.id,
-            topic_id: topicId,
-            quiz_count: 1,
-            avg_quiz_score: Math.round(scorePct),
-            mastery_score: mastery,
+        // Award XP
+        if (xp > 0) {
+          await addDoc(collection(db, "xp_logs"), {
+            user_id: user.uid,
+            source_type: "quiz",
+            xp_amount: xp,
+            created_at: serverTimestamp(),
           });
+
+          // Update profile total_xp
+          const profileRef = doc(db, "profiles", user.uid);
+          await setDoc(profileRef, { total_xp: increment(xp), updated_at: serverTimestamp() }, { merge: true });
         }
+
+        // Update topic_progress if we have a topicId
+        if (topicId) {
+          const scorePct = total > 0 ? (score / total) * 100 : 0;
+          const progressRef = doc(db, "topic_progress", `${user.uid}_${topicId}`);
+          const progressSnap = await getDoc(progressRef);
+
+          if (progressSnap.exists()) {
+            const existing = progressSnap.data();
+            const newCount = (existing.quiz_count || 0) + 1;
+            const newAvg = ((Number(existing.avg_quiz_score || 0) * (existing.quiz_count || 0)) + scorePct) / newCount;
+            const mastery = Math.round(newAvg * 0.7 + (existing.lessons_completed > 0 ? 30 : 0));
+
+            await setDoc(progressRef, {
+              quiz_count: newCount,
+              avg_quiz_score: Math.round(newAvg),
+              mastery_score: mastery,
+              last_updated: serverTimestamp(),
+            }, { merge: true });
+          } else {
+            const mastery = Math.round(scorePct * 0.7);
+            await setDoc(progressRef, {
+              user_id: user.uid,
+              topic_id: topicId,
+              quiz_count: 1,
+              avg_quiz_score: Math.round(scorePct),
+              mastery_score: mastery,
+              created_at: serverTimestamp(),
+            });
+          }
+        }
+      } catch (error) {
+        console.error("[QuizResults] Save error:", error);
       }
     };
     save();
-  }, [user, total]);
+  }, [user, total, topicId, quizId, topicTitle, score, xp]);
+
+  // Redirect if no quiz data — must be in useEffect, not during render
+  useEffect(() => {
+    if (total === 0) {
+      navigate("/quiz", { replace: true });
+    }
+  }, [total, navigate]);
 
   if (total === 0) {
-    navigate("/quiz", { replace: true });
     return null;
   }
 

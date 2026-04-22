@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, ArrowRight, Loader2, Lightbulb, BookOpen, Flame, SkipForward, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { aiComplete } from "@/lib/aiService";
 
 interface Question {
   question: string;
@@ -12,20 +13,21 @@ interface Question {
   explanation: string;
 }
 
-const QUIZ_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-quiz`;
-const DOUBT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/solve-doubt`;
-
+/**
+ * QuizPage — AI-powered quiz generation using OpenRouter (Gemma 3 27B)
+ *
+ * Generates quizzes and hints via the centralized aiService.
+ */
 const QuizPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const location = useLocation();
-  const { session } = useAuth();
+  const { user } = useAuth();
 
   const topicTitle = (location.state as { topicTitle?: string; subjectName?: string })?.topicTitle ?? "Quiz";
   const subjectName = (location.state as { topicTitle?: string; subjectName?: string })?.subjectName ?? "";
 
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [quizId, setQuizId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -40,49 +42,68 @@ const QuizPage = () => {
 
   const fetched = useRef(false);
 
-  // Generate quiz
+  // Generate quiz via OpenRouter API
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
 
     const run = async () => {
       try {
-        // ✅ FIX: Always require auth token — never fall back to public key
-        if (!session?.access_token) {
-          toast.error("Please log in to take a quiz.");
-          navigate("/login");
-          return;
-        }
+        const prompt = `Generate exactly 5 multiple-choice quiz questions about "${topicTitle}"${subjectName ? ` (subject: ${subjectName})` : ""}.
 
-        const resp = await fetch(QUIZ_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ topic: topicTitle, subject: subjectName, count: 5, topicId: id }),
+Return ONLY a valid JSON array with this exact format, no other text:
+[
+  {
+    "question": "What is...?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 0,
+    "explanation": "Brief explanation of the correct answer"
+  }
+]
+
+Rules:
+- Each question must have exactly 4 options
+- "correct" is the 0-based index of the correct option
+- Questions should range from easy to medium difficulty
+- Make questions educational and clear
+- Include helpful explanations`;
+
+        const text = await aiComplete({
+          messages: [
+            { role: "system", content: "You are a quiz generator. Return ONLY valid JSON arrays, no other text or markdown." },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.8,
+          maxTokens: 2048,
         });
 
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          throw new Error((err as { error?: string }).error ?? "Failed to generate quiz");
-        }
+        // Extract JSON from response (handle markdown code blocks)
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error("Failed to parse quiz questions from AI response");
 
-        const data = await resp.json();
-        setQuestions(data.questions ?? []);
-        setQuizId(data.quizId ?? null);
-        setAnswers(Array((data.questions ?? []).length).fill(null));
+        const parsed = JSON.parse(jsonMatch[0]) as Question[];
+        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No questions generated");
+
+        // Validate structure
+        const valid = parsed.filter(
+          (q) => q.question && Array.isArray(q.options) && q.options.length === 4 && typeof q.correct === "number"
+        );
+
+        if (valid.length === 0) throw new Error("Invalid question format from AI");
+
+        setQuestions(valid);
+        setAnswers(Array(valid.length).fill(null));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Something went wrong";
         toast.error(msg);
-        console.error(e);
+        console.error("[QuizPage] Generation error:", e);
       } finally {
         setLoading(false);
       }
     };
 
     run();
-  }, [topicTitle, subjectName, id, session, navigate]);
+  }, [topicTitle, subjectName, id, navigate]);
 
   // Timer
   useEffect(() => {
@@ -113,7 +134,6 @@ const QuizPage = () => {
   };
 
   const goToResults = (finalAnswers: (number | null)[]) => {
-    // ✅ FIX: Correct XP formula — 10 XP per correct answer, +20 bonus if score ≥ 80%
     const score = finalAnswers.filter((a, i) => a === questions[i]?.correct).length;
     navigate(`/quiz/${id}/results`, {
       state: {
@@ -121,7 +141,6 @@ const QuizPage = () => {
         total: questions.length,
         topicTitle,
         topicId: id,
-        quizId,
         questions,
         answers: finalAnswers,
         timeSeconds: timer,
@@ -162,68 +181,34 @@ const QuizPage = () => {
     }
   };
 
-  // ✅ FIX: AI Hint is now fully functional via solve-doubt edge function
+  // AI Hint via OpenRouter
   const handleAskHint = async () => {
-    if (hintLoading || !session?.access_token) return;
+    if (hintLoading) return;
     setShowHint(true);
     setHintLoading(true);
     setHintText("");
 
     try {
       const q = questions[current];
-      const hintQuestion = `Give me a hint (not the answer) for this ${topicTitle} question: "${q.question}"`;
+      const prompt = `Give me a helpful hint (NOT the answer) for this ${topicTitle} question: "${q.question}". The hint should guide the student toward the correct answer without revealing it directly. Keep it to 2-3 sentences.`;
 
-      const resp = await fetch(DOUBT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ question: hintQuestion }),
+      const text = await aiComplete({
+        messages: [
+          { role: "system", content: "You are a helpful tutor. Give hints, NOT answers." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+        maxTokens: 256,
       });
 
-      if (!resp.ok) throw new Error("Hint unavailable");
-
-      // Handle streaming response
-      const reader = resp.body?.getReader();
-      const decoder = new TextDecoder();
-      let full = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          // Parse SSE-style chunks
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6).trim();
-              if (data && data !== "[DONE]") {
-                try {
-                  const parsed = JSON.parse(data);
-                  const text = parsed.choices?.[0]?.delta?.content ?? parsed.content ?? "";
-                  full += text;
-                  setHintText(full);
-                } catch {
-                  full += data;
-                  setHintText(full);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      if (!full) setHintText("Think about the core concept behind this topic. Re-read the question carefully.");
-    } catch (e) {
+      setHintText(text || "Think about the core concept behind this topic. Re-read the question carefully.");
+    } catch {
       setHintText("Hint unavailable right now. Try re-reading the question options carefully.");
     } finally {
       setHintLoading(false);
     }
   };
 
-  // ✅ FIX: Correct XP display formula
   const currentScore = answers.slice(0, current).filter((a, i) => a === questions[i]?.correct).length;
   const currentXP = currentScore * 10;
 
@@ -281,13 +266,12 @@ const QuizPage = () => {
           </h1>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">Score:</span>
-            {/* ✅ FIX: Simple, accurate XP display */}
             <span className="text-sm font-bold text-cta">{currentXP} XP</span>
           </div>
         </div>
       </div>
 
-      {/* Progress bar — uses success green per design spec */}
+      {/* Progress bar */}
       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
         <div
           className="h-full bg-success rounded-full transition-all duration-500"

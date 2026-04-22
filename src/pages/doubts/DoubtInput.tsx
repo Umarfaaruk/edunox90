@@ -4,15 +4,36 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Sparkles, BookOpen, Calculator, Atom, History } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 
 const DoubtInput = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [question, setQuestion] = useState("");
 
-  // Stubbed data for Firebase migration
-  const history: any[] = [];
-
+  // Fetch recent doubts from Firestore
+  const { data: history } = useQuery({
+    queryKey: ["recent-doubts", user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      try {
+        const q = query(
+          collection(db, "doubt_sessions"),
+          where("user_id", "==", user.uid),
+          orderBy("created_at", "desc"),
+          limit(5)
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+      } catch (error) {
+        console.error("[DoubtInput] Recent doubts fetch error:", error);
+        return [];
+      }
+    },
+    enabled: !!user,
+  });
 
   const handleSubmit = () => {
     if (question.trim()) {

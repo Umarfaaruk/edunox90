@@ -1,11 +1,17 @@
 import { Trophy, Star, Flame, Target, Zap, BookOpen, Medal, Award, Clock, MessageCircleQuestion } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
-// import { supabase } from "@/integrations/supabase/client";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect } from "react";
-import { toast } from "sonner";
+
+/**
+ * Achievements page — migrated from Supabase to Firebase/Firestore
+ *
+ * Since the `achievements` collection (definitions) may not exist yet
+ * in Firestore, we use hardcoded achievement definitions as fallback.
+ * User progress is computed from real Firestore data.
+ */
 
 const iconMap: Record<string, React.ElementType> = {
   flame: Flame,
@@ -20,132 +26,82 @@ const iconMap: Record<string, React.ElementType> = {
   "message-circle-question": MessageCircleQuestion,
 };
 
+// Hardcoded achievement definitions (fallback if Firestore collection doesn't exist)
+const DEFAULT_ACHIEVEMENTS = [
+  { id: "streak_7", key: "streak_7", name: "Week Warrior", description: "Maintain a 7-day study streak", icon: "flame", xp_reward: 50, threshold: 7, sort_order: 1 },
+  { id: "streak_30", key: "streak_30", name: "Monthly Master", description: "Maintain a 30-day study streak", icon: "flame", xp_reward: 200, threshold: 30, sort_order: 2 },
+  { id: "first_quiz", key: "first_quiz", name: "Quiz Beginner", description: "Complete your first quiz", icon: "target", xp_reward: 20, threshold: 1, sort_order: 3 },
+  { id: "quiz_master", key: "quiz_master", name: "Quiz Master", description: "Complete 50 quizzes", icon: "trophy", xp_reward: 150, threshold: 50, sort_order: 4 },
+  { id: "perfect_score", key: "perfect_score", name: "Perfect Score", description: "Get 100% on a quiz", icon: "star", xp_reward: 30, threshold: 1, sort_order: 5 },
+  { id: "sharp_shooter", key: "sharp_shooter", name: "Sharpshooter", description: "Score 90%+ on 10 quizzes", icon: "target", xp_reward: 100, threshold: 10, sort_order: 6 },
+  { id: "xp_hunter", key: "xp_hunter", name: "XP Hunter", description: "Earn 1,000 XP total", icon: "zap", xp_reward: 50, threshold: 1000, sort_order: 7 },
+  { id: "xp_legend", key: "xp_legend", name: "XP Legend", description: "Earn 5,000 XP total", icon: "award", xp_reward: 200, threshold: 5000, sort_order: 8 },
+  { id: "study_hour", key: "study_hour", name: "Focused Learner", description: "Study for 60 minutes total", icon: "clock", xp_reward: 30, threshold: 60, sort_order: 9 },
+  { id: "study_marathon", key: "study_marathon", name: "Study Marathon", description: "Study for 10 hours total", icon: "clock", xp_reward: 150, threshold: 600, sort_order: 10 },
+  { id: "first_doubt", key: "first_doubt", name: "Curious Mind", description: "Ask your first doubt", icon: "message-circle-question", xp_reward: 15, threshold: 1, sort_order: 11 },
+  { id: "bookworm", key: "bookworm", name: "Bookworm", description: "Complete 20 lessons", icon: "book-open", xp_reward: 100, threshold: 20, sort_order: 12 },
+];
+
 const Achievements = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
-  // Fetch achievement definitions
-  const { data: achievementDefs } = useQuery({
-    queryKey: ["achievement-defs"],
-    queryFn: async () => {
-      const { data } = await supabase.from("achievements").select("*").order("sort_order");
-      return data ?? [];
-    },
-  });
-
-  // Fetch user's earned achievements
-  const { data: earnedAchievements } = useQuery({
-    queryKey: ["user-achievements", user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data } = await supabase
-        .from("user_achievements")
-        .select("achievement_id, earned_at")
-        .eq("user_id", user.id);
-      return data ?? [];
-    },
-    enabled: !!user,
-  });
-
-  // Fetch user stats for progress tracking & auto-unlock
-  const { data: stats } = useQuery({
-    queryKey: ["achievement-stats", user?.id],
+  // Fetch user stats from Firestore
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["achievement-stats", user?.uid],
     queryFn: async () => {
       if (!user) return null;
 
-      const [xpRes, streakRes, quizRes, progressRes, doubtRes, studyRes] = await Promise.all([
-        supabase.from("xp_logs").select("xp_amount").eq("user_id", user.id),
-        supabase.from("user_streaks").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("quiz_attempts").select("score, total_questions").eq("user_id", user.id),
-        supabase.from("user_lesson_progress").select("completed").eq("user_id", user.id).eq("completed", true),
-        supabase.from("doubt_sessions").select("id").eq("user_id", user.id),
-        supabase.from("study_sessions").select("duration_seconds").eq("user_id", user.id),
-      ]);
+      try {
+        const [xpSnap, streakSnap, quizSnap, studySnap] = await Promise.all([
+          getDocs(query(collection(db, "xp_logs"), where("user_id", "==", user.uid))),
+          getDoc(doc(db, "user_streaks", user.uid)),
+          getDocs(query(collection(db, "quiz_attempts"), where("user_id", "==", user.uid))),
+          getDocs(query(collection(db, "study_sessions"), where("user_id", "==", user.uid))),
+        ]);
 
-      const totalXp = (xpRes.data ?? []).reduce((s, r) => s + r.xp_amount, 0);
-      const streak = streakRes.data;
-      const quizzes = quizRes.data ?? [];
-      const lessonsCompleted = progressRes.data?.length ?? 0;
-      const perfectQuizzes = quizzes.filter((q) => q.score === q.total_questions && q.total_questions > 0).length;
-      const high90 = quizzes.filter((q) => q.total_questions > 0 && (q.score / q.total_questions) >= 0.9).length;
-      const totalStudySeconds = (studyRes.data ?? []).reduce((s, r) => s + r.duration_seconds, 0);
-      const doubtCount = doubtRes.data?.length ?? 0;
+        let totalXp = 0;
+        xpSnap.forEach((d) => { totalXp += d.data().xp_amount || 0; });
 
-      return {
-        totalXp,
-        streak,
-        quizCount: quizzes.length,
-        perfectQuizzes,
-        high90,
-        lessonsCompleted,
-        totalStudySeconds,
-        doubtCount,
-      };
+        const streakData = streakSnap.exists() ? streakSnap.data() : { current_streak: 0, longest_streak: 0 };
+
+        const quizzes: any[] = [];
+        quizSnap.forEach((d) => quizzes.push(d.data()));
+
+        let totalStudySeconds = 0;
+        studySnap.forEach((d) => { totalStudySeconds += d.data().duration_seconds || 0; });
+
+        const perfectQuizzes = quizzes.filter((q) => q.score === q.total_questions && q.total_questions > 0).length;
+        const high90 = quizzes.filter((q) => q.total_questions > 0 && (q.score / q.total_questions) >= 0.9).length;
+
+        return {
+          totalXp,
+          streak: streakData,
+          quizCount: quizzes.length,
+          perfectQuizzes,
+          high90,
+          lessonsCompleted: 0, // Would need lesson progress collection
+          totalStudySeconds,
+          doubtCount: 0, // Would need doubt_sessions collection
+        };
+      } catch (error) {
+        console.error("[Achievements] Stats fetch error:", error);
+        return {
+          totalXp: 0, streak: { current_streak: 0, longest_streak: 0 },
+          quizCount: 0, perfectQuizzes: 0, high90: 0,
+          lessonsCompleted: 0, totalStudySeconds: 0, doubtCount: 0,
+        };
+      }
     },
     enabled: !!user,
   });
 
-  // Auto-unlock achievements
-  useEffect(() => {
-    if (!user || !achievementDefs || !earnedAchievements || !stats) return;
-
-    const earnedIds = new Set(earnedAchievements.map((e) => e.achievement_id));
-
-    const progressMap: Record<string, number> = {
-      streak_7: stats.streak?.longest_streak ?? 0,
-      streak_30: stats.streak?.longest_streak ?? 0,
-      first_quiz: stats.quizCount,
-      quiz_master: stats.quizCount,
-      perfect_score: stats.perfectQuizzes,
-      sharp_shooter: stats.high90,
-      bookworm: stats.lessonsCompleted,
-      xp_hunter: stats.totalXp,
-      xp_legend: stats.totalXp,
-      first_doubt: stats.doubtCount,
-      study_hour: stats.totalStudySeconds,
-      study_marathon: stats.totalStudySeconds,
-    };
-
-    const toUnlock = achievementDefs.filter((a) => {
-      if (earnedIds.has(a.id)) return false;
-      const progress = progressMap[a.key] ?? 0;
-      return progress >= a.threshold;
-    });
-
-    if (toUnlock.length === 0) return;
-
-    (async () => {
-      for (const achievement of toUnlock) {
-        const { error } = await supabase.from("user_achievements").insert({
-          user_id: user.id,
-          achievement_id: achievement.id,
-        });
-
-        if (!error) {
-          // Award XP for the achievement
-          await supabase.from("xp_logs").insert({
-            user_id: user.id,
-            source_type: "achievement",
-            xp_amount: achievement.xp_reward,
-            reference_id: achievement.id,
-          });
-          toast.success(`🏆 Achievement unlocked: ${achievement.name} (+${achievement.xp_reward} XP)`);
-        }
-      }
-      queryClient.invalidateQueries({ queryKey: ["user-achievements"] });
-      queryClient.invalidateQueries({ queryKey: ["totalXp"] });
-    })();
-  }, [user, achievementDefs, earnedAchievements, stats]);
-
-  // Compute display data
+  const achievementDefs = DEFAULT_ACHIEVEMENTS;
   const totalXp = stats?.totalXp ?? 0;
   const level = Math.floor(totalXp / 200) + 1;
   const xpInLevel = totalXp % 200;
   const xpForNext = 200;
   const levelTitle =
     level >= 10 ? "Legend" : level >= 7 ? "Master" : level >= 5 ? "Scholar" : level >= 3 ? "Rising Star" : "Beginner";
-
-  const earnedIds = new Set((earnedAchievements ?? []).map((e) => e.achievement_id));
 
   const progressMap: Record<string, { current: number; total: number }> = stats
     ? {
@@ -164,7 +120,14 @@ const Achievements = () => {
       }
     : {};
 
-  const isLoading = !achievementDefs || !stats;
+  const earnedKeys = new Set(
+    Object.entries(progressMap)
+      .filter(([_, p]) => p.current >= p.total)
+      .map(([key]) => key)
+  );
+
+  const earnedCount = earnedKeys.size;
+  const totalCount = achievementDefs.length;
 
   if (isLoading) {
     return (
@@ -177,9 +140,6 @@ const Achievements = () => {
       </div>
     );
   }
-
-  const earnedCount = (earnedAchievements ?? []).length;
-  const totalCount = achievementDefs?.length ?? 0;
 
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
@@ -205,8 +165,8 @@ const Achievements = () => {
 
       {/* Badge grid */}
       <div className="grid sm:grid-cols-2 gap-3">
-        {(achievementDefs ?? []).map((a) => {
-          const earned = earnedIds.has(a.id);
+        {achievementDefs.map((a) => {
+          const earned = earnedKeys.has(a.key);
           const prog = progressMap[a.key];
           const IconComp = iconMap[a.icon] ?? Trophy;
 

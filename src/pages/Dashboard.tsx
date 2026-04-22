@@ -4,26 +4,27 @@ import {
   Trophy, Flame, Lightbulb, Timer, Bot, AlertTriangle, Zap,
 } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import DashboardTimer from "@/components/DashboardTimer";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Dashboard = () => {
-  const { profile, streak, totalXp, studyTime, avgScore, continueLearning, weakTopics } =
+  const { profile, streak, totalXp, studyTime, avgScore, continueLearning, weakTopics, isLoading, greeting } =
     useDashboardData();
 
   const displayName = profile?.full_name?.split(" ")[0] ?? "there";
   const level = Math.floor(totalXp / 200) + 1;
   const currentStreak = streak?.current_streak ?? 0;
 
-  // Streak calendar — last 7 days
+  // Streak calendar — Current week (Mon-Sun)
   const streakDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
-    return { label: dayNames[d.getDay()], active: i >= 7 - currentStreak };
+    const todayDate = new Date();
+    const currentDayOfWeek = todayDate.getDay();
+    const todayIdx = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1; // Mon=0, Sun=6
+    
+    const dayNames = ["M", "T", "W", "T", "F", "S", "S"];
+    const isActive = i <= todayIdx && i > todayIdx - currentStreak;
+    
+    return { label: dayNames[i], active: isActive };
   });
-
-  const isLoading = !profile;
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-6xl mx-auto">
@@ -47,8 +48,6 @@ const Dashboard = () => {
             </>
           )}
         </div>
-        {/* ✅ FIX: DashboardTimer now starts on user action, not mount */}
-        <DashboardTimer />
       </div>
 
       {/* ── Two hero CTA cards ───────────────────────────────── */}
@@ -112,16 +111,16 @@ const Dashboard = () => {
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
           <h3 className="font-semibold text-foreground text-sm">Subject Mastery</h3>
           {weakTopics.length > 0 ? (
-            weakTopics.slice(0, 3).map((t: { topicId: string; topicTitle: string; mastery: number }) => (
-              <div key={t.topicId} className="space-y-1">
+            weakTopics.slice(0, 3).map((t: { topic: string; avgScore: number }) => (
+              <div key={t.topic} className="space-y-1">
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">{t.topicTitle}</span>
-                  <span className="text-success font-semibold">{t.mastery}%</span>
+                  <span className="text-muted-foreground">{t.topic}</span>
+                  <span className="text-success font-semibold">{t.avgScore}%</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-success rounded-full transition-all duration-500"
-                    style={{ width: `${t.mastery}%` }}
+                    style={{ width: `${t.avgScore}%` }}
                   />
                 </div>
               </div>
@@ -214,7 +213,6 @@ const Dashboard = () => {
           { icon: MessageCircleQuestion, label: "Ask a Doubt",       to: "/doubts" },
           { icon: Gamepad2,             label: "Practice Quiz",      to: "/quiz" },
           { icon: BookOpen,             label: "Continue Learning",  to: "/lessons" },
-          { icon: Timer,                label: "Study Timer",        to: "/timer" },
           { icon: Trophy,               label: "Achievements",       to: "/achievements" },
         ].map((a) => (
           <Link
@@ -239,16 +237,16 @@ const Dashboard = () => {
             Based on your quiz scores, these topics need more practice:
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
-            {weakTopics.map((t: { topicId: string; topicTitle: string; subject: string; mastery: number }) => (
+            {weakTopics.map((t: { topic: string; avgScore: number }) => (
               <Link
-                key={t.topicId}
-                to={`/lessons/${t.topicId}`}
+                key={t.topic}
+                to={`/quiz`}
                 className="bg-card border border-border rounded-lg px-4 py-3 hover:border-primary/40 transition-colors"
               >
-                <div className="text-sm font-medium text-foreground">{t.topicTitle}</div>
+                <div className="text-sm font-medium text-foreground">{t.topic}</div>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-muted-foreground">{t.subject}</span>
-                  <span className="text-xs font-bold text-destructive">{t.mastery}% mastery</span>
+                  <span className="text-xs text-muted-foreground">Quiz topic</span>
+                  <span className="text-xs font-bold text-destructive">{t.avgScore}% mastery</span>
                 </div>
               </Link>
             ))}

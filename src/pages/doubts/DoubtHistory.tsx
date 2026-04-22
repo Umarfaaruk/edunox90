@@ -3,22 +3,28 @@ import { ArrowLeft, History, MessageSquare } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
-// import { supabase } from "@/integrations/supabase/client";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const DoubtHistory = () => {
   const { user } = useAuth();
 
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ["doubt-history-full", user?.id],
+    queryKey: ["doubt-history-full", user?.uid],
     queryFn: async () => {
       if (!user) return [];
-      const { data } = await supabase
-        .from("doubt_sessions")
-        .select("id, question_preview, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      return data ?? [];
+      try {
+        const q = query(
+          collection(db, "doubt_sessions"),
+          where("user_id", "==", user.uid),
+          orderBy("created_at", "desc")
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+      } catch (error) {
+        console.error("[DoubtHistory] Query error:", error);
+        return [];
+      }
     },
     enabled: !!user,
   });
@@ -50,7 +56,7 @@ const DoubtHistory = () => {
             No doubts asked yet. Start by asking your first question!
           </div>
         ) : (
-          sessions?.map((s) => (
+          sessions?.map((s: any) => (
             <Link
               key={s.id}
               to={`/doubts/session/${s.id}`}
@@ -63,7 +69,7 @@ const DoubtHistory = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{s.question_preview}</p>
                   <span className="text-xs text-muted-foreground mt-1 block">
-                    {new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    {s.created_at ? new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : ""}
                   </span>
                 </div>
               </div>

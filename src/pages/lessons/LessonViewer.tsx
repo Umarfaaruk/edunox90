@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, CheckCircle2, BookOpen, Focus, X, Zap } from "lucide-react";
@@ -9,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { useDeepFocus } from "@/hooks/useDeepFocus";
 import { awardXP } from "@/lib/studySession";
 import { toast } from "sonner";
+import { doc, getDoc, collection, getDocs, query, where, writeBatch } from "firebase/firestore";
 
 const LESSON_XP = 20; // XP awarded per lesson completion
 
@@ -20,39 +21,111 @@ const LessonViewer = () => {
   const { isDeepFocus, toggleDeepFocus } = useDeepFocus();
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Stubbed for Firebase migration
-  const topic: any = { title: "Topic", subjectName: "Subject" };
-  const lessons: any[] = [];
-  const isLoading = false;
-  const progress: any[] = [];
+  // Fetch topic and lessons from Firestore
+  const { data: topic, isLoading: topicLoading } = useQuery({
+    queryKey: ["topic", topicId],
+    queryFn: async () => {
+      if (!topicId) return null;
+      try {
+        const topicDoc = await getDoc(doc(db, "topics", topicId));
+        return topicDoc.exists() ? { id: topicDoc.id, ...topicDoc.data() } : null;
+      } catch (error) {
+        console.error("[LessonViewer] Topic fetch error:", error);
+        return null;
+      }
+    }
+  });
+
+  const { data: lessons = [], isLoading: lessonsLoading } = useQuery({
+    queryKey: ["lessons", topicId],
+    queryFn: async () => {
+      if (!topicId) return [];
+      try {
+        const lessonsSnap = await getDocs(
+          query(
+            collection(db, "lessons"),
+            where("topic_id", "==", topicId)
+          )
+        );
+        return lessonsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as any[];
+      } catch (error) {
+        console.error("[LessonViewer] Lessons fetch error:", error);
+        return [];
+      }
+    },
+    enabled: !!topicId
+  });
+
+  // Fetch user progress for this topic
+  const { data: progress = [] } = useQuery({
+    queryKey: ["lesson-progress", topicId, user?.uid],
+    queryFn: async () => {
+      if (!topicId || !user) return [];
+      try {
+        const progressSnap = await getDocs(
+          query(
+            collection(db, "lesson_progress"),
+            where("user_id", "==", user.uid),
+            where("topic_id", "==", topicId)
+          )
+        );
+        return progressSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as any[];
+      } catch (error) {
+        console.error("[LessonViewer] Progress fetch error:", error);
+        return [];
+      }
+    },
+    enabled: !!topicId && !!user
+  });
 
   const completedSet = new Set(
-    (progress ?? []).filter((p) => p.completed).map((p) => p.lesson_id)
+    (progress ?? []).flatMap((p: any) => p.completed_lessons ?? [])
   );
 
   const currentLesson = lessons?.[currentIndex];
   const isCompleted = currentLesson ? completedSet.has(currentLesson.id) : false;
+  const isLoading = topicLoading || lessonsLoading;
   const totalLessons = lessons?.length ?? 0;
   const overallPct = totalLessons > 0 ? Math.round((completedSet.size / totalLessons) * 100) : 0;
 
-  // ✅ NEW: Mark complete AND award XP
+  // Mark complete AND award XP
   const markComplete = useMutation({
     mutationFn: async () => {
-      if (!user || !currentLesson) return;
-      // Stubbed Firebase update
+      if (!user || !currentLesson || !topicId) return;
+      
+      // Update lesson_progress in Firestore
+      const batch = writeBatch(db);
+      const progressRef = doc(db, "lesson_progress", `${user.uid}_${topicId}`);
+      
+      const existingProgress = progress[0] || { completed_lessons: [] };
+      const updated = Array.from(new Set([...(existingProgress.completed_lessons || []), currentLesson.id]));
+      
+      batch.set(progressRef, {
+        user_id: user.uid,
+        topic_id: topicId,
+        completed_lessons: updated,
+        updated_at: new Date()
+      }, { merge: true });
+      
+      await batch.commit();
       await awardXP(user.uid, LESSON_XP, "lesson");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lesson-progress"] });
-      queryClient.invalidateQueries({ queryKey: ["topics-with-progress"] });
+      queryClient.invalidateQueries({ queryKey: ["lesson-progress", topicId, user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ["topics", user?.uid] });
       queryClient.invalidateQueries({ queryKey: ["totalXp"] });
-      queryClient.invalidateQueries({ queryKey: ["continueLearning"] });
       toast.success(`Lesson completed! +${LESSON_XP} XP 🎉`);
     },
-    onError: (err) => {
-      toast.error("Failed to save progress. Please try again.");
-      console.error(err);
-    },
+    onError: (error) => {
+      console.error("[LessonViewer] Mark complete error:", error);
+      toast.error("Failed to complete lesson");
+    }
   });
 
   if (isLoading) {
