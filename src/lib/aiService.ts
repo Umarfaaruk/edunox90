@@ -68,9 +68,17 @@ function getRetryDelay(resp: Response, attempt: number): number {
   return BASE_DELAY_MS * Math.pow(2, attempt);
 }
 
-interface ChatMessage {
+export interface ChatMessageContentItem {
+  type: "text" | "image_url";
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+}
+
+export interface ChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ChatMessageContentItem[];
 }
 
 interface AIRequestOptions {
@@ -285,4 +293,45 @@ export function buildMessages(
   }
   messages.push({ role: "user", content: userMessage });
   return messages;
+}
+
+export async function aiVisionComplete(
+  options: AIRequestOptions
+): Promise<string> {
+  const apiKey = getApiKey();
+  const { messages, temperature = 0.5, maxTokens = 2048, signal } = options;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const resp = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: buildHeaders(apiKey),
+      signal,
+      body: JSON.stringify({
+        model: "llama-3.2-11b-vision-preview", // Vision model
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        stream: false,
+      }),
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      return data?.choices?.[0]?.message?.content || "";
+    }
+
+    if (resp.status === 429) {
+      if (attempt < MAX_RETRIES) {
+        const delay = getRetryDelay(resp, attempt);
+        console.log(`[AI Vision] ⏳ Rate limited. Retrying in ${(delay / 1000).toFixed(1)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+        await sleep(delay, signal);
+        continue;
+      }
+      throw new Error("Rate limit exceeded after multiple retries. Please wait and try again.");
+    }
+
+    await handleErrorResponse(resp);
+  }
+
+  throw new Error("Unexpected error in AI vision completion");
 }

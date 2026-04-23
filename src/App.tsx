@@ -23,6 +23,7 @@ import DoubtInput from "./pages/doubts/DoubtInput";
 import AISolution from "./pages/doubts/AISolution";
 import DoubtHistory from "./pages/doubts/DoubtHistory";
 import DoubtSession from "./pages/doubts/DoubtSession";
+import CameraQnA from "./pages/doubts/CameraQnA";
 import TopicSelection from "./pages/quiz/TopicSelection";
 import QuizPage from "./pages/quiz/QuizPage";
 import QuizResults from "./pages/quiz/QuizResults";
@@ -40,6 +41,7 @@ import Settings from "./pages/Settings";
 import LessonList from "./pages/lessons/LessonList";
 import LessonViewer from "./pages/lessons/LessonViewer";
 import AdminPanel from "./pages/admin/AdminPanel";
+import Feedback from "./pages/Feedback";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +95,7 @@ const App = () => (
                 <Route path="/doubts/solution" element={<ErrorBoundary><AISolution /></ErrorBoundary>} />
                 <Route path="/doubts/history" element={<ErrorBoundary><DoubtHistory /></ErrorBoundary>} />
                 <Route path="/doubts/session/:id" element={<ErrorBoundary><DoubtSession /></ErrorBoundary>} />
+                <Route path="/doubts/camera" element={<ErrorBoundary><CameraQnA /></ErrorBoundary>} />
                 <Route path="/quiz" element={<ErrorBoundary><TopicSelection /></ErrorBoundary>} />
                 <Route path="/quiz/:id" element={<ErrorBoundary><QuizPage /></ErrorBoundary>} />
                 <Route path="/quiz/:id/results" element={<ErrorBoundary><QuizResults /></ErrorBoundary>} />
@@ -106,6 +109,7 @@ const App = () => (
                 <Route path="/achievements" element={<ErrorBoundary><Achievements /></ErrorBoundary>} />
                 <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
                 <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+                <Route path="/feedback" element={<ErrorBoundary><Feedback /></ErrorBoundary>} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

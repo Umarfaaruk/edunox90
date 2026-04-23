@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, MessageCircleQuestion, Trophy,
   BarChart3, Upload, Settings, User, Flame, Gamepad2, Bot,
-  Timer, Focus, X, ChevronLeft,
+  Timer, Focus, X, ChevronLeft, MessageSquare, Camera
 } from "lucide-react";
 import { useDeepFocus } from "@/hooks/useDeepFocus";
 import GlobalTimer from "@/components/GlobalTimer";
@@ -13,6 +13,7 @@ const sidebarLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/lessons", icon: BookOpen, label: "Lessons" },
   { to: "/doubts", icon: MessageCircleQuestion, label: "Ask Doubt" },
+  { to: "/doubts/camera", icon: Camera, label: "Snap & Learn" },
   { to: "/quiz", icon: Gamepad2, label: "Practice Quiz" },
   { to: "/materials", icon: Upload, label: "Materials" },
   { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },
@@ -21,12 +22,13 @@ const sidebarLinks = [
   { to: "/achievements", icon: Flame, label: "Achievements" },
   { to: "/profile", icon: User, label: "Profile" },
   { to: "/settings", icon: Settings, label: "Settings" },
+  { to: "/feedback", icon: MessageSquare, label: "Feedback" },
 ];
 
 // Mobile nav shows only the 5 most important routes
 const mobileNavLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { to: "/lessons", icon: BookOpen, label: "Lessons" },
+  { to: "/doubts/camera", icon: Camera, label: "Snap" },
   { to: "/doubts", icon: MessageCircleQuestion, label: "Doubt" },
   { to: "/quiz", icon: Gamepad2, label: "Quiz" },
   { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },

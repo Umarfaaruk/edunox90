@@ -207,8 +207,9 @@ const MaterialUpload = () => {
   const activeRequests = useRef<Set<AbortController>>(new Set());
 
   useEffect(() => {
+    const controllers = activeRequests.current;
     return () => {
-      activeRequests.current.forEach(controller => controller.abort());
+      controllers.forEach(controller => controller.abort());
     };
   }, []);
 
