@@ -11,7 +11,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { isPricingEnabled } from "@/lib/featureFlags";
 import Index from "./pages/Index";
 import About from "./pages/About";
-import Pricing from "./pages/Pricing";
+import PricingPage from "./pages/PricingPage";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
@@ -65,7 +65,7 @@ const App = () => (
               <Route path="/about" element={<About />} />
               <Route
                 path="/pricing"
-                element={isPricingEnabled ? <Pricing /> : <Navigate to="/" replace />}
+                element={isPricingEnabled ? <PricingPage /> : <Navigate to="/" replace />}
               />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
