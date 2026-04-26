@@ -134,14 +134,7 @@ ${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summar
     }
   };
 
-  const toggleTask = async (dayIndex: number, taskIndex: number) => {
-    if (!activePlan) return;
-    try {
-      const newSchedule = [...activePlan.schedule];
-      // Since tasks is an array of strings in the prompt, let's just mark the whole day or change prompt.
-      // Wait, the prompt makes 'completed' a boolean on the day level. Let's toggle the day.
-    } catch(e){}
-  };
+
   
   const toggleDayComplete = async (dayIndex: number) => {
      if (!activePlan) return;
@@ -190,7 +183,7 @@ ${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summar
              <div className="col-span-full text-center py-12 text-muted-foreground bg-muted/50 rounded-xl border border-dashed border-border">
                 <FileText className="h-8 w-8 mx-auto mb-3 opacity-40" />
                 <p className="text-sm mb-4">No materials uploaded yet.</p>
-                <Link to="/materials/upload">
+                <Link to="/materials">
                   <Button variant="outline" size="sm">Upload Material</Button>
                 </Link>
              </div>

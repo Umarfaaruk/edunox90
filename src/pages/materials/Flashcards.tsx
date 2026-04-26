@@ -180,7 +180,7 @@ ${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summar
              <div className="col-span-2 text-center py-12 text-muted-foreground bg-muted/50 rounded-xl border border-dashed border-border">
                 <FileText className="h-8 w-8 mx-auto mb-3 opacity-40" />
                 <p className="text-sm mb-4">No materials uploaded yet.</p>
-                <Link to="/materials/upload">
+                <Link to="/materials">
                   <Button variant="outline" size="sm">Upload Material</Button>
                 </Link>
              </div>
