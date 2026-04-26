@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,16 +200,6 @@ const MaterialUpload = () => {
   const [uploadProgress, setUploadProgress] = useState("");
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-
-  // Keep track of active requests for cleanup
-  const activeRequests = useRef<Set<AbortController>>(new Set());
-
-  useEffect(() => {
-    const controllers = activeRequests.current;
-    return () => {
-      controllers.forEach(controller => controller.abort());
-    };
-  }, []);
 
   const { data: materials, isLoading } = useQuery({
     queryKey: ["materials", user?.uid],

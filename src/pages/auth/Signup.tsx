@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { auth } from "@/lib/firebase";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { getReadableFirebaseAuthError } from "@/lib/firebaseAuthErrors";
 
 import eduonxLogo from "@/assets/eduonx-logo.png";
 
@@ -34,7 +35,7 @@ const Signup = () => {
     setIsLoading(false);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getReadableFirebaseAuthError(error));
       console.error("Firebase Signup Error:", error);
       return;
     }
@@ -49,7 +50,7 @@ const Signup = () => {
       toast.success("Signed in with Google!");
       navigate("/dashboard");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(getReadableFirebaseAuthError(error));
     }
   };
 

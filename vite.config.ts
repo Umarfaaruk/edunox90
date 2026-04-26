@@ -7,7 +7,7 @@ export default defineConfig(() => ({
   server: {
     host: "0.0.0.0",
     port: 5000,
-    allowedHosts: true,
+    allowedHosts: true as const,
     hmr: {
       overlay: false,
     },
@@ -41,10 +41,12 @@ export default defineConfig(() => ({
           "vendor-radix": [
             "@radix-ui/react-select",
             "@radix-ui/react-tabs",
-            "@radix-ui/react-dialog",
             "@radix-ui/react-tooltip",
-            "@radix-ui/react-dropdown-menu",
           ],
+          // Animation libraries
+          "vendor-animation": ["framer-motion", "gsap", "@gsap/react"],
+          // Flow diagram library
+          "vendor-flow": ["@xyflow/react"],
           // Markdown renderer
           "vendor-markdown": ["react-markdown"],
         },

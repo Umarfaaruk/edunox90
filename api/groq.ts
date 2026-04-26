@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 function getApiKey(): string {
@@ -58,7 +59,7 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    const data = await upstream.json().catch(async () => {
+    const data: any = await upstream.json().catch(async () => {
       const text = await upstream.text();
       return { error: { message: text || "Invalid upstream response" } };
     });
