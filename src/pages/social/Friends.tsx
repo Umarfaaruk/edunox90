@@ -27,7 +27,16 @@ const Friends = () => {
             where("requester_id", "==", user.uid)
           )
         );
-        const records1 = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const records1 = snap.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        } as {
+          id: string;
+          requester_id: string;
+          addressee_id: string;
+          status: "pending" | "accepted" | "declined";
+          created_at?: any;
+        }));
 
         const snap2 = await getDocs(
           query(
@@ -35,9 +44,18 @@ const Friends = () => {
             where("addressee_id", "==", user.uid)
           )
         );
-        const records2 = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const records2 = snap2.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        } as {
+          id: string;
+          requester_id: string;
+          addressee_id: string;
+          status: "pending" | "accepted" | "declined";
+          created_at?: any;
+        }));
 
-        return [...records1, ...records2] as any[];
+        return [...records1, ...records2];
       } catch (error) {
         console.error("[Friends] Fetch records error:", error);
         return [];
@@ -62,7 +80,14 @@ const Friends = () => {
             where("__name__", "in", friendUserIds.slice(0, 10))
           )
         );
-        return snap.docs.map(doc => ({ user_id: doc.id, ...doc.data() })) as any[];
+        return snap.docs.map(doc => ({ 
+          user_id: doc.id, 
+          ...doc.data() 
+        } as {
+          user_id: string;
+          full_name?: string;
+          [key: string]: any;
+        }));
       } catch (error) {
         console.error("[Friends] Fetch profiles error:", error);
         return [];

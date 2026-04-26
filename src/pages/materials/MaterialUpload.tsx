@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { collection, query, where, orderBy, getDocs, deleteDoc, doc, addDoc, updateDoc } from "firebase/firestore";
+import { aiComplete } from "@/lib/aiService";
 
 /**
  * CLIENT-SIDE TEXT EXTRACTION
@@ -134,7 +135,7 @@ function generateSimpleSummary(text: string): string {
 }
 
 /**
- * AI-POWERED ANALYSIS with OpenRouter
+ * AI-POWERED ANALYSIS via server AI proxy
  * Generates comprehensive summary, key topics, and concept hierarchy
  * Falls back to basic extraction if API unavailable
  */
@@ -151,12 +152,9 @@ async function analyzeWithAI(
     })),
   };
 
-  // Check if OpenRouter API key is configured
-  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-  if (!apiKey || text.length < 50) return fallback;
+  if (text.length < 50) return fallback;
 
   try {
-    const { aiComplete } = await import("@/lib/aiService");
     const truncated = text.substring(0, 15000);
     const prompt = `Analyze this study material and return a JSON object with:
 1. "summary": A comprehensive 3-5 sentence summary
@@ -223,7 +221,22 @@ const MaterialUpload = () => {
         orderBy("uploaded_at", "desc")
       );
       const docs = await getDocs(q);
-      return docs.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+      return docs.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      } as { 
+        id: string; 
+        file_name: string; 
+        content_type: string; 
+        file_size: number; 
+        processing_status: string; 
+        extracted_text: string; 
+        summary: string; 
+        key_topics: string[]; 
+        content_length: number;
+        uploaded_at?: any;
+        user_id: string;
+      }));
     },
     enabled: !!user,
   });
@@ -257,9 +270,9 @@ const MaterialUpload = () => {
           setUploadProgress(`Extracting text from ${file.name}...`);
           const extractedText = await extractTextFromFile(file);
 
-          setUploadProgress(`Analyzing ${file.name}...`);
-          const keyTopics = extractSimpleTopics(extractedText, file.name);
-          const summary = generateSimpleSummary(extractedText);
+          setUploadProgress(`Analyzing ${file.name} with AI...`);
+          const analysis = await analyzeWithAI(extractedText, file.name);
+          const { summary, keyTopics } = analysis;
 
           // Step 3: Update Firestore doc with extracted content & mark as completed
           await updateDoc(doc(db, "materials", materialRef.id), {

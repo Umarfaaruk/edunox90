@@ -127,7 +127,7 @@
  * - Service functions can write to all collections
  */
 
-import { collection, query, where, orderBy, limit, getDocs, Query } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 
 /**
@@ -189,7 +189,7 @@ export interface ProductivityScore {
 /**
  * Get user's study time for a given period
  */
-export async function getStudyTime(
+async function getStudyTime(
   userId: string,
   period: "today" | "week" | "month" = "today"
 ): Promise<number> {
@@ -221,44 +221,9 @@ export async function getStudyTime(
 }
 
 /**
- * Get user's total XP earned
- */
-export async function getTotalXP(userId: string, period?: "today" | "week" | "month"): Promise<number> {
-  let q: Query;
-
-  if (period) {
-    const now = new Date();
-    const startDate = new Date();
-
-    switch (period) {
-      case "today":
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case "week":
-        startDate.setDate(now.getDate() - 7);
-        break;
-      case "month":
-        startDate.setMonth(now.getMonth() - 1);
-        break;
-    }
-
-    q = query(
-      collection(db, "xp_logs"),
-      where("user_id", "==", userId),
-      where("created_at", ">=", startDate)
-    );
-  } else {
-    q = query(collection(db, "xp_logs"), where("user_id", "==", userId));
-  }
-
-  const docs = await getDocs(q);
-  return docs.docs.reduce((sum, doc) => sum + (doc.data().xp_amount || 0), 0);
-}
-
-/**
  * Get daily analytics snapshots for charting
  */
-export async function getDailyAnalytics(
+async function getDailyAnalytics(
   userId: string,
   days: number = 7
 ): Promise<AnalyticsSnapshot[]> {
@@ -289,7 +254,6 @@ export async function calculateProductivityScore(
 
   // Get this week's data
   const weekStudyMinutes = await getStudyTime(userId, "week");
-  const weekXP = await getTotalXP(userId, "week");
   const dailyAnalytics = await getDailyAnalytics(userId, 7);
 
   // Get quiz results
@@ -353,80 +317,15 @@ function calculateConsistencyScore(streak: UserStreak | undefined, dailyAnalytic
 
   // Regularity component (50 points max)
   const daysWithStudy = dailyAnalytics.filter((d) => d.study_minutes > 0).length;
-  const regularityScore = (daysWithStudy / dailyAnalytics.length) * 50;
+  const regularityScore = dailyAnalytics.length > 0
+    ? (daysWithStudy / dailyAnalytics.length) * 50
+    : 0;
   score += regularityScore;
 
   return Math.min(score, 100);
 }
 
-/**
- * Get learning insights
- */
-export async function getLearningInsights(
-  userId: string
-): Promise<{
-  strongSubjects: string[];
-  weakSubjects: string[];
-  recommendedTopics: string[];
-  studyPattern: string;
-}> {
-  // Get quiz results by topic
-  const quizQ = query(
-    collection(db, "quiz_results"),
-    where("user_id", "==", userId),
-    orderBy("completed_at", "desc"),
-    limit(50)
-  );
 
-  const quizDocs = await getDocs(quizQ);
-  const topicScores: Record<string, number[]> = {};
-
-  quizDocs.docs.forEach((doc) => {
-    const data = doc.data();
-    const topic = data.topic || "General";
-    if (!topicScores[topic]) topicScores[topic] = [];
-    topicScores[topic].push(data.score || 0);
-  });
-
-  // Calculate averages
-  const topicAvgs = Object.entries(topicScores).map(([topic, scores]) => ({
-    topic,
-    avg: scores.reduce((a, b) => a + b, 0) / scores.length,
-  }));
-
-  const strongSubjects = topicAvgs
-    .filter((t) => t.avg >= 80)
-    .sort((a, b) => b.avg - a.avg)
-    .map((t) => t.topic);
-
-  const weakSubjects = topicAvgs
-    .filter((t) => t.avg < 60)
-    .sort((a, b) => a.avg - b.avg)
-    .map((t) => t.topic);
-
-  // Analyze study pattern
-  const dailyAnalytics = await getDailyAnalytics(userId, 30);
-  const peakHours = analyzePeakHours(dailyAnalytics);
-
-  return {
-    strongSubjects,
-    weakSubjects,
-    recommendedTopics: weakSubjects.slice(0, 3),
-    studyPattern: `Most active on ${peakHours}`,
-  };
-}
-
-/**
- * Analyze peak study hours
- */
-function analyzePeakHours(dailyAnalytics: AnalyticsSnapshot[]): string {
-  // This would typically analyze intraday data, but for now return a generic pattern
-  const totalMinutes = dailyAnalytics.reduce((sum, d) => sum + d.study_minutes, 0);
-  if (totalMinutes > 0) {
-    return "mornings and evenings";
-  }
-  return "specific times";
-}
 
 /**
  * Generate detailed performance insights
@@ -504,8 +403,8 @@ export async function getConsistencyMetrics(userId: string) {
   let maxStreak = 0;
   let tempStreak = 0;
 
-  // Sort by date ascending
-  const sortedAnalytics = dailyAnalytics.sort((a, b) => {
+  // Sort by date ascending — use slice() to avoid mutating the original array
+  const sortedAnalytics = dailyAnalytics.slice().sort((a, b) => {
     const dateA = new Date(typeof a.date === "string" ? a.date : a.timestamp?.toDate?.() || "");
     const dateB = new Date(typeof b.date === "string" ? b.date : b.timestamp?.toDate?.() || "");
     return dateA.getTime() - dateB.getTime();
@@ -548,30 +447,3 @@ export async function getConsistencyMetrics(userId: string) {
   };
 }
 
-/**
- * Leaderboard data
- */
-export async function getLeaderboard(maxResults: number = 100) {
-  const q = query(
-    collection(db, "profiles"),
-    orderBy("total_xp", "desc"),
-    limit(maxResults)
-  );
-
-  const docs = await getDocs(q);
-  return docs.docs.map((doc, rank) => ({
-    rank: rank + 1,
-    ...doc.data(),
-  }));
-}
-
-export default {
-  getStudyTime,
-  getTotalXP,
-  getDailyAnalytics,
-  calculateProductivityScore,
-  getLearningInsights,
-  getPerformanceBreakdown,
-  getConsistencyMetrics,
-  getLeaderboard,
-};

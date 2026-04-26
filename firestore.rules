@@ -85,17 +85,31 @@ service cloud.firestore {
                        isUser(resource.data.addressee_id) || isAdmin();
     }
     
-    // ── /doubt_sessions collection ────────────────────
+    // ── /doubt_sessions collection ──────────────────
     match /doubt_sessions/{sessionId} {
       allow read: if isUser(resource.data.user_id);
       allow create: if isUser(request.resource.data.user_id);
       allow update, delete: if isUser(resource.data.user_id);
     }
     
+    // ── /doubt_messages collection ──────────────────
+    // Messages stored per doubt session (user Q + AI answer)
+    match /doubt_messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+    
     // ── /analytics collection (aggregated data) ───────
     match /analytics/{userId} {
       allow read: if isUser(userId);
       allow write: if isUser(userId) || isAdmin();
+    }
+    
+    // ── /feedback collection ──────────────────────────
+    match /feedback/{feedbackId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
     }
     
     // ── /topic_progress collection ────────────────────
@@ -131,6 +145,20 @@ service cloud.firestore {
     match /quiz_results/{resultId} {
       allow read: if isUser(resource.data.user_id);
       allow write: if isUser(request.resource.data.user_id);
+    }
+
+    // ── /flashcards collection ────────────────────────
+    match /flashcards/{cardId} {
+      allow read: if isUser(resource.data.user_id);
+      allow create: if isUser(request.resource.data.user_id);
+      allow update, delete: if isUser(resource.data.user_id);
+    }
+    
+    // ── /study_plans collection ───────────────────────
+    match /study_plans/{planId} {
+      allow read: if isUser(resource.data.user_id);
+      allow create: if isUser(request.resource.data.user_id);
+      allow update, delete: if isUser(resource.data.user_id);
     }
     
     // ── Deny all by default ───────────────────────────

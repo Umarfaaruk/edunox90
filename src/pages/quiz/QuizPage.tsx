@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Clock, ArrowRight, Loader2, Lightbulb, BookOpen, Flame, SkipForward, X } from "lucide-react";
@@ -24,8 +24,10 @@ const QuizPage = () => {
   const location = useLocation();
   const { user } = useAuth();
 
-  const topicTitle = (location.state as { topicTitle?: string; subjectName?: string })?.topicTitle ?? "Quiz";
-  const subjectName = (location.state as { topicTitle?: string; subjectName?: string })?.subjectName ?? "";
+  const topicTitle = (location.state as any)?.topicTitle ?? "Quiz";
+  const subjectName = (location.state as any)?.subjectName ?? "";
+  const materialContext = (location.state as any)?.materialContext ?? "";
+  const difficulty = (location.state as any)?.difficulty ?? "Medium";
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,9 +51,7 @@ const QuizPage = () => {
 
     const run = async () => {
       try {
-        const prompt = `Generate exactly 5 multiple-choice quiz questions about "${topicTitle}"${subjectName ? ` (subject: ${subjectName})` : ""}.
-
-Return ONLY a valid JSON array with this exact format, no other text:
+        const baseInstructions = `Return ONLY a valid JSON array with this exact format, no other text:
 [
   {
     "question": "What is...?",
@@ -64,9 +64,21 @@ Return ONLY a valid JSON array with this exact format, no other text:
 Rules:
 - Each question must have exactly 4 options
 - "correct" is the 0-based index of the correct option
-- Questions should range from easy to medium difficulty
+- The difficulty level for these questions should be: ${difficulty}
 - Make questions educational and clear
 - Include helpful explanations`;
+
+        const prompt = materialContext 
+          ? `Generate exactly 5 multiple-choice quiz questions based on the following study material content.
+
+Material Name: "${topicTitle}"
+Content:
+${materialContext}
+
+${baseInstructions}`
+          : `Generate exactly 5 multiple-choice quiz questions about "${topicTitle}"${subjectName ? ` (subject: ${subjectName})` : ""}.
+
+${baseInstructions}`;
 
         const text = await aiComplete({
           messages: [
@@ -103,7 +115,7 @@ Rules:
     };
 
     run();
-  }, [topicTitle, subjectName, id, navigate]);
+  }, [topicTitle, subjectName, id, navigate, difficulty, materialContext]);
 
   // Timer
   useEffect(() => {

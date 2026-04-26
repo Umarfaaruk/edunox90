@@ -30,7 +30,12 @@ const LessonList = () => {
         const topicsData = topicsSnap.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        })) as any[];
+        } as {
+          id: string;
+          title: string;
+          description?: string;
+          [key: string]: any;
+        }));
 
         // Fetch user progress for each topic
         const progressSnap = await getDocs(

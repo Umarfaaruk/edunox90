@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, Upload, Send, RefreshCw, X } from "lucide-react";
+import { Camera, Send, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

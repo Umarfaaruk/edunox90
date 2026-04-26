@@ -310,7 +310,7 @@ const GlobalSpotlight = ({
       mix-blend-mode: screen;
     `;
     document.body.appendChild(spotlight);
-    spotlightRef.current = spotlight as any;
+    spotlightRef.current = spotlight as HTMLElement;
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!spotlightRef.current || !gridRef.current) return;
@@ -618,4 +618,3 @@ export const MagicBento = ({
   );
 };
 
-export default MagicBento;

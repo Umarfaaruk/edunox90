@@ -1,18 +1,19 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
+import type { CSSProperties } from 'react';
 
 const styles = {
-  wrapper: { display: 'inline-block', whiteSpace: 'pre-wrap' as any },
+  wrapper: { display: 'inline-block', whiteSpace: 'pre-wrap' } as CSSProperties,
   srOnly: {
-    position: 'absolute' as any,
+    position: 'absolute',
     width: '1px',
     height: '1px',
     padding: 0,
     margin: '-1px',
-    overflow: 'hidden' as any,
+    overflow: 'hidden',
     clip: 'rect(0,0,0,0)',
     border: 0
-  }
+  } as CSSProperties
 };
 
 export default function DecryptedText({
@@ -346,7 +347,7 @@ export default function DecryptedText({
       {...animateProps}
       {...props}
     >
-      <span style={styles.srOnly as any}>{displayText}</span>
+      <span style={styles.srOnly}>{displayText}</span>
       <span aria-hidden="true">
         {displayText.split('').map((char, index) => {
           const isRevealedOrDone =

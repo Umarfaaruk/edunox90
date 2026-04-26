@@ -131,8 +131,8 @@ const SplitText = ({
   );
 
   const renderTag = () => {
-    const style: any = {
-      textAlign,
+    const style: React.CSSProperties = {
+      textAlign: textAlign as React.CSSProperties["textAlign"],
       overflow: 'hidden',
       display: 'inline-block',
       whiteSpace: 'normal',

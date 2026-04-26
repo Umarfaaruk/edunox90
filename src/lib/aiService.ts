@@ -1,38 +1,24 @@
 /**
- * EDUNOX AI SERVICE — OpenRouter Integration
- * ============================================
- * 
- * Centralized AI service using OpenRouter API with google/gemma-4-31b-it:free model.
- * Replaces all previous direct Gemini API calls with a unified interface.
- * 
- * OpenRouter provides an OpenAI-compatible API at:
- *   https://openrouter.ai/api/v1/chat/completions
- * 
- * Auth: Bearer token via VITE_OPENROUTER_API_KEY
- * Model: google/gemma-4-31b-it:free (free tier, no cost)
- * 
+ * EDUNOX AI SERVICE — Groq Integration
+ * ======================================
+ *
+ * Centralized AI service using the Groq API (OpenAI-compatible).
+ * Uses the llama-3.3-70b-versatile model for fast, high-quality responses.
+ *
+ * API endpoint: /api/groq (server-side proxy to Groq)
+ * Auth: Bearer token via server-only GROQ_API_KEY
+ * Vision model: llama-3.2-11b-vision-preview (for image Q&A)
+ *
  * RATE LIMIT HANDLING:
- *   Free-tier models have aggressive rate limits (~10 req/min).
  *   Both aiComplete() and aiStream() automatically retry on 429 errors
  *   with exponential backoff (2s → 4s → 8s), up to 3 retries.
  */
 
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_PROXY_URL = "/api/groq";
 const MODEL = "llama-3.3-70b-versatile";
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 2000; // 2 seconds initial backoff
-
-function getApiKey(): string {
-  const key = import.meta.env.VITE_GROQ_API_KEY;
-  if (!key) {
-    throw new Error(
-      "Groq API Key not configured. Add VITE_GROQ_API_KEY to .env.local\n\n" +
-      "Get a free key at: https://console.groq.com/keys"
-    );
-  }
-  return key;
-}
 
 /**
  * Sleep helper that respects AbortSignal.
@@ -88,13 +74,9 @@ interface AIRequestOptions {
   signal?: AbortSignal;
 }
 
-/**
- * Build the common request headers.
- */
-function buildHeaders(apiKey: string): Record<string, string> {
+function buildHeaders(): Record<string, string> {
   return {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${apiKey}`,
   };
 }
 
@@ -103,9 +85,9 @@ function buildHeaders(apiKey: string): Record<string, string> {
  */
 async function handleErrorResponse(resp: Response): Promise<never> {
   const errData = await resp.json().catch(() => ({}));
-  const errMsg = errData?.error?.message || `AI Service Error (${resp.status})`;
+  const errMsg = errData?.error?.message || errData?.error || `AI Service Error (${resp.status})`;
   if (resp.status === 401 || resp.status === 403) {
-    throw new Error("API key invalid or expired. Please check your VITE_GROQ_API_KEY in .env.local");
+    throw new Error("AI service authentication failed. Check server GROQ_API_KEY configuration.");
   }
   throw new Error(errMsg);
 }
@@ -115,13 +97,12 @@ async function handleErrorResponse(resp: Response): Promise<never> {
  * Returns the full response text.
  */
 export async function aiComplete(options: AIRequestOptions): Promise<string> {
-  const apiKey = getApiKey();
   const { messages, temperature = 0.7, maxTokens = 4096, signal } = options;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const resp = await fetch(GROQ_URL, {
+    const resp = await fetch(GROQ_PROXY_URL, {
       method: "POST",
-      headers: buildHeaders(apiKey),
+      headers: buildHeaders(),
       signal,
       body: JSON.stringify({
         model: MODEL,
@@ -167,13 +148,12 @@ export async function aiStream(
   options: AIRequestOptions,
   onToken: (token: string) => void
 ): Promise<string> {
-  const apiKey = getApiKey();
   const { messages, temperature = 0.7, maxTokens = 4096, signal } = options;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const resp = await fetch(GROQ_URL, {
+    const resp = await fetch(GROQ_PROXY_URL, {
       method: "POST",
-      headers: buildHeaders(apiKey),
+      headers: buildHeaders(),
       signal,
       body: JSON.stringify({
         model: MODEL,
@@ -277,34 +257,15 @@ async function processStream(
   return fullResponse.trim() || "I couldn't generate a response. Please try rephrasing your question.";
 }
 
-/**
- * Helper to build a system+user message pair (most common pattern).
- */
-export function buildMessages(
-  systemPrompt: string,
-  userMessage: string,
-  conversationHistory?: ChatMessage[]
-): ChatMessage[] {
-  const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt },
-  ];
-  if (conversationHistory) {
-    messages.push(...conversationHistory);
-  }
-  messages.push({ role: "user", content: userMessage });
-  return messages;
-}
-
 export async function aiVisionComplete(
   options: AIRequestOptions
 ): Promise<string> {
-  const apiKey = getApiKey();
   const { messages, temperature = 0.5, maxTokens = 2048, signal } = options;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const resp = await fetch(GROQ_URL, {
+    const resp = await fetch(GROQ_PROXY_URL, {
       method: "POST",
-      headers: buildHeaders(apiKey),
+      headers: buildHeaders(),
       signal,
       body: JSON.stringify({
         model: "llama-3.2-11b-vision-preview", // Vision model

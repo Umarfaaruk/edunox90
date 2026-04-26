@@ -6,11 +6,18 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "noUnusedParameters": false,
     "skipLibCheck": true,
     "allowJs": true,
     "noUnusedLocals": false,
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "strict": true,
+    "strictPropertyInitialization": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "alwaysStrict": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true
   }
 }

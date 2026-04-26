@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Send, Sparkles, Loader2, Copy, Check, Square, Trash2, Calculator, Atom, BookOpen, Code2, Globe, FileText, ChevronDown, X, Upload } from "lucide-react";
+import { Bot, Send, Sparkles, Loader2, Copy, Check, Square, Trash2, Calculator, Atom, BookOpen, Code2, Globe, FileText, X, Upload } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -484,6 +484,7 @@ const AITutor = () => {
             type="file"
             accept=".pdf,.txt,.md"
             className="hidden"
+            aria-label="Upload study material file"
             onChange={(e) => handleFileUpload(e.target.files)}
           />
         </div>

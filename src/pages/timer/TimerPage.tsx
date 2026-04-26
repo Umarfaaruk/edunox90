@@ -66,8 +66,8 @@ const TimerPage = () => {
       const docs = await getDocs(q);
       return docs.docs.map((doc) => ({
         id: doc.id,
-        ...(doc.data() as any),
-      })) as StudySession[];
+        ...(doc.data() as StudySession),
+      } as StudySession));
     },
   });
 

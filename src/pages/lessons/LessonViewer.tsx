@@ -50,7 +50,13 @@ const LessonViewer = () => {
         return lessonsSnap.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        })) as any[];
+        } as {
+          id: string;
+          topic_id: string;
+          title: string;
+          content?: string;
+          [key: string]: any;
+        }));
       } catch (error) {
         console.error("[LessonViewer] Lessons fetch error:", error);
         return [];
@@ -75,7 +81,14 @@ const LessonViewer = () => {
         return progressSnap.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        })) as any[];
+        } as {
+          id: string;
+          user_id: string;
+          topic_id: string;
+          lesson_id: string;
+          completed: boolean;
+          [key: string]: any;
+        }));
       } catch (error) {
         console.error("[LessonViewer] Progress fetch error:", error);
         return [];

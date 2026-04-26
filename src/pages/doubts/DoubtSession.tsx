@@ -22,7 +22,16 @@ const DoubtSession = () => {
           orderBy("created_at")
         );
         const snap = await getDocs(q);
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+        return snap.docs.map((d) => ({ 
+          id: d.id, 
+          ...d.data() 
+        } as {
+          id: string;
+          role: "user" | "assistant";
+          message_text: string;
+          created_at: string;
+          doubt_session_id: string;
+        }));
       } catch (error) {
         console.error("[DoubtSession] Query error:", error);
         return [];

@@ -11,7 +11,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { isPricingEnabled } from "@/lib/featureFlags";
 import Index from "./pages/Index";
 import About from "./pages/About";
-import PricingPage from "./pages/PricingPage";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
@@ -31,6 +31,9 @@ import QuizResults from "./pages/quiz/QuizResults";
 import MaterialUpload from "./pages/materials/MaterialUpload";
 import AILearning from "./pages/materials/AILearning";
 import AITutor from "./pages/materials/AITutor";
+import Flashcards from "./pages/materials/Flashcards";
+import ConceptMap from "./pages/materials/ConceptMap";
+import StudyPlanner from "./pages/materials/StudyPlanner";
 import ProgressDashboard from "./pages/progress/ProgressDashboard";
 import TimerPage from "./pages/timer/TimerPage";
 import Leaderboard from "./pages/social/Leaderboard";
@@ -65,7 +68,7 @@ const App = () => (
               <Route path="/about" element={<About />} />
               <Route
                 path="/pricing"
-                element={isPricingEnabled ? <PricingPage /> : <Navigate to="/" replace />}
+                element={isPricingEnabled ? <Pricing /> : <Navigate to="/" replace />}
               />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
@@ -102,6 +105,9 @@ const App = () => (
                 <Route path="/materials" element={<ErrorBoundary><MaterialUpload /></ErrorBoundary>} />
                 <Route path="/materials/learn/:id" element={<ErrorBoundary><AILearning /></ErrorBoundary>} />
                 <Route path="/materials/tutor" element={<ErrorBoundary><AITutor /></ErrorBoundary>} />
+                <Route path="/materials/flashcards" element={<ErrorBoundary><Flashcards /></ErrorBoundary>} />
+                <Route path="/materials/concept-map" element={<ErrorBoundary><ConceptMap /></ErrorBoundary>} />
+                <Route path="/materials/planner" element={<ErrorBoundary><StudyPlanner /></ErrorBoundary>} />
                 <Route path="/progress" element={<ErrorBoundary><ProgressDashboard /></ErrorBoundary>} />
                 <Route path="/timer" element={<ErrorBoundary><TimerPage /></ErrorBoundary>} />
                 <Route path="/leaderboard" element={<ErrorBoundary><Leaderboard /></ErrorBoundary>} />

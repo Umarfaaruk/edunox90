@@ -6,7 +6,7 @@ import { Bell, User, LogOut, Shield, CreditCard, Puzzle, Bot } from "lucide-reac
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useQuery } from "@tanstack/react-query";
 
 const tabs = [
@@ -54,6 +54,28 @@ const Settings = () => {
   const [notifications, setNotifications] = useState({ email: true, push: true, streak: true });
   const [tutorTone, setTutorTone] = useState<"academic" | "friendly" | "direct">("academic");
   const [socraticMethod, setSocraticMethod] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    try {
+      const docRef = doc(db, "profiles", user.uid);
+      await updateDoc(docRef, {
+        full_name: name,
+        university: university,
+        major: major,
+        // email usually handled by Firebase Auth, but we can store it too
+        email: email,
+      });
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto">
@@ -172,7 +194,9 @@ const Settings = () => {
                 <button className="text-sm text-destructive hover:underline">Deactivate Account</button>
                 <div className="flex gap-3">
                   <Button variant="outline" size="sm">Cancel</Button>
-                  <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">Save All Changes</Button>
+                  <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleSaveProfile} disabled={isSaving}>
+                    {isSaving ? "Saving..." : "Save All Changes"}
+                  </Button>
                 </div>
               </div>
             </>

@@ -59,10 +59,10 @@
 ### Step 2: Add to Your .env.local
 ```bash
 # Open .env.local in the root directory and add:
-VITE_GOOGLE_API_KEY=AIzaSyBCEHIR1_w_moXmbODzbZ07Y5qcCvIcPas
+VITE_GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-**Replace `your_api_key_here` with your actual API key**
+**Replace `your_google_api_key_here` with your actual API key and never commit real keys to git.**
 
 ### Step 3: Restart Dev Server
 ```bash

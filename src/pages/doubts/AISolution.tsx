@@ -24,7 +24,7 @@ const AISolution = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const question = (location.state as any)?.question as string | undefined;
+  const question = (location.state as { question?: string })?.question as string | undefined;
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

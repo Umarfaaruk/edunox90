@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   root: path.resolve(__dirname),
   server: {
     host: "0.0.0.0",
@@ -10,13 +10,6 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: true,
     hmr: {
       overlay: false,
-    },
-    proxy: {
-      "/api/ai": {
-        target: "http://localhost:8000",
-        changeOrigin: true,
-        secure: false,
-      },
     },
   },
   plugins: [react()],
@@ -27,5 +20,37 @@ export default defineConfig(({ mode }) => ({
   },
   css: {
     postcss: path.resolve(__dirname),
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React runtime
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          // Firebase SDK (large)
+          "vendor-firebase": [
+            "firebase/app",
+            "firebase/auth",
+            "firebase/firestore",
+            "firebase/storage",
+            "firebase/analytics",
+          ],
+          // Charting library (large)
+          "vendor-recharts": ["recharts"],
+          // Radix UI primitives
+          "vendor-radix": [
+            "@radix-ui/react-select",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-tooltip",
+            "@radix-ui/react-dropdown-menu",
+          ],
+          // Markdown renderer
+          "vendor-markdown": ["react-markdown"],
+        },
+      },
+    },
+    // Warn at 600 KB since we have intentional chunking
+    chunkSizeWarningLimit: 600,
   },
 }));

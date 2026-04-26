@@ -14,7 +14,12 @@ interface SaveSessionResult {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const dayDiff = (a: string, b: string) => {
   const first = new Date(`${a}T00:00:00Z`).getTime();
@@ -199,7 +204,13 @@ export async function saveStudySession(
       const streakRef = doc(db, "user_streaks", userId);
       const streakSnap = await tryQuietly(getDoc(streakRef), "read user_streaks");
 
-      const streakData = (streakSnap && streakSnap.exists()
+      // CRITICAL: If the read failed entirely, do NOT overwrite the streak with a default 0.
+      if (!streakSnap) {
+        console.warn("[StudySession] ⚠️ Skipping streak update to avoid data loss");
+        return null;
+      }
+
+      const streakData = (streakSnap.exists()
         ? (streakSnap.data() as StreakData)
         : currentStreak) ?? {
         current_streak: 0,
@@ -254,6 +265,9 @@ export async function saveStudySession(
   // Extract streak value if available
   if (streakResult.status === "fulfilled" && typeof streakResult.value === "number") {
     newStreak = streakResult.value;
+  } else if (currentStreak) {
+    // Fallback to UI's known streak if write failed
+    newStreak = currentStreak.current_streak;
   }
 
   return { xp, newStreak };

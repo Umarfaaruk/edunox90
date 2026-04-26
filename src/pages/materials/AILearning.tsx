@@ -222,7 +222,7 @@ Always provide structured, comprehensive responses that help the student deeply 
           const updated = [...prev];
           updated[updated.length - 1] = {
             ...assistantMessage,
-            content: `❌ **Error**: ${errorMsg}\n\nPlease check:\n- Your internet connection\n- Your OpenRouter API key is valid\n- You have sufficient API quota`,
+            content: `❌ **Error**: ${errorMsg}\n\nPlease check:\n- Your internet connection\n- Server-side AI key (GROQ_API_KEY) is configured on deployment\n- You have sufficient API quota`,
           };
           return updated;
         });

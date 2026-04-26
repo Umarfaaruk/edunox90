@@ -19,6 +19,7 @@ const DoubtInput = () => {
     queryFn: async () => {
       if (!user) return [];
       try {
+        // Try with orderBy first (requires composite index)
         const q = query(
           collection(db, "doubt_sessions"),
           where("user_id", "==", user.uid),
@@ -26,9 +27,38 @@ const DoubtInput = () => {
           limit(5)
         );
         const snap = await getDocs(q);
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
-      } catch (error) {
-        console.error("[DoubtInput] Recent doubts fetch error:", error);
+        return snap.docs.map((d) => ({ 
+          id: d.id, 
+          ...d.data() 
+        } as {
+          id: string;
+          user_id: string;
+          created_at: string;
+          [key: string]: any;
+        }));
+      } catch (indexErr: any) {
+        // Fallback: fetch without orderBy (no composite index required), sort client-side
+        if (indexErr?.code === "failed-precondition" || indexErr?.message?.includes("index")) {
+          console.warn("[DoubtInput] Composite index missing, falling back to client-side sort");
+          try {
+            const qFallback = query(
+              collection(db, "doubt_sessions"),
+              where("user_id", "==", user.uid)
+            );
+            const snapFallback = await getDocs(qFallback);
+            return snapFallback.docs
+              .map((d) => ({ id: d.id, ...d.data() } as { id: string; user_id: string; created_at: string; [key: string]: any }))
+              .sort((a, b) => {
+                const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return dateB - dateA;
+              })
+              .slice(0, 5);
+          } catch {
+            return [];
+          }
+        }
+        console.error("[DoubtInput] Recent doubts fetch error:", indexErr);
         return [];
       }
     },

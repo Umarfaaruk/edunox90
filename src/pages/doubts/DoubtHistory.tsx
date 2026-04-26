@@ -20,7 +20,17 @@ const DoubtHistory = () => {
           orderBy("created_at", "desc")
         );
         const snap = await getDocs(q);
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+        return snap.docs.map((d) => ({ 
+          id: d.id, 
+          ...d.data() 
+        } as {
+          id: string;
+          user_id: string;
+          created_at: string;
+          title?: string;
+          description?: string;
+          [key: string]: any;
+        }));
       } catch (error) {
         console.error("[DoubtHistory] Query error:", error);
         return [];
