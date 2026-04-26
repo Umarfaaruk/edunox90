@@ -10,6 +10,22 @@ import { Loader2, Calendar, RefreshCw, FileText, CheckCircle2, ChevronRight, Cal
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
+interface StudyPlanDay {
+  day: number;
+  title: string;
+  tasks: string[];
+  completed: boolean;
+}
+
+interface StudyPlan {
+  id: string;
+  user_id: string;
+  material_id: string;
+  target_date: string;
+  schedule: StudyPlanDay[];
+  created_at: number;
+}
+
 export default function StudyPlanner() {
   const { user } = useAuth();
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
@@ -37,7 +53,7 @@ export default function StudyPlanner() {
         where("user_id", "==", user.uid)
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as StudyPlan));
     },
     enabled: !!selectedMaterial?.id && !!user,
   });
