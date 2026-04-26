@@ -7,7 +7,7 @@
  *
  * API endpoint: /api/groq (server-side proxy to Groq)
  * Auth: Bearer token via server-only GROQ_API_KEY
- * Vision model: llama-3.2-11b-vision-preview (for image Q&A)
+ * Vision model: meta-llama/llama-4-scout-17b-16e-instruct (for image Q&A)
  *
  * RATE LIMIT HANDLING:
  *   Both aiComplete() and aiStream() automatically retry on 429 errors
@@ -268,7 +268,7 @@ export async function aiVisionComplete(
       headers: buildHeaders(),
       signal,
       body: JSON.stringify({
-        model: "llama-3.2-11b-vision-preview", // Vision model
+        model: "meta-llama/llama-4-scout-17b-16e-instruct", // Vision model
         messages,
         temperature,
         max_tokens: maxTokens,
