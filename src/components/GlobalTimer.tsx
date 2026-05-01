@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 /**
- * EDUNOX GLOBAL TIMER — Production-Grade Implementation
+ * EDUONX GLOBAL TIMER — Production-Grade Implementation
  * =====================================================
  *
  * DESIGN PRINCIPLES:
@@ -73,7 +73,7 @@ const GlobalTimer = () => {
   }, [running]);
 
   // ── localStorage key ──────────────────────────────────────
-  const sessionKey = user ? `edunox_timer_${user.uid}` : null;
+  const sessionKey = user ? `eduonx_timer_${user.uid}` : null;
 
   // ── Invalidate caches (defined FIRST to avoid hoisting issues) ──
   const invalidateProgress = useCallback(() => {
@@ -165,7 +165,7 @@ const GlobalTimer = () => {
         if (e instanceof Error && e.name === "QuotaExceededError") {
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key?.startsWith("edunox_timer_") && key !== sessionKey) {
+            if (key?.startsWith("eduonx_timer_") && key !== sessionKey) {
               localStorage.removeItem(key);
               break;
             }

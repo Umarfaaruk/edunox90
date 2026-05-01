@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, ChevronRight, Search, Calculator, Atom, FlaskConical, Leaf } from "lucide-react";
+import { BookOpen, ChevronRight, Search, Calculator, Atom, FlaskConical, Leaf, FileText, Loader2, Sparkles, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { collection, query, getDocs, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { aiComplete } from "@/lib/aiService";
+import { toast } from "sonner";
+import { doc, setDoc, writeBatch } from "firebase/firestore";
 
 const iconMap: Record<string, React.ReactNode> = {
   calculator:     <Calculator    className="h-5 w-5 text-primary" />,
@@ -19,6 +23,20 @@ const LessonList = () => {
   const { user } = useAuth();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // Fetch user materials
+  const { data: materials } = useQuery({
+    queryKey: ["user-materials", user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      const q = query(collection(db, "materials"), where("user_id", "==", user.uid));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+    },
+    enabled: !!user
+  });
 
   // Fetch topics with progress tracking
   const { data: topics = [], isLoading } = useQuery({
@@ -30,12 +48,7 @@ const LessonList = () => {
         const topicsData = topicsSnap.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        } as {
-          id: string;
-          title: string;
-          description?: string;
-          [key: string]: any;
-        }));
+        } as any));
 
         // Fetch user progress for each topic
         const progressSnap = await getDocs(
@@ -75,9 +88,90 @@ const LessonList = () => {
   const subjectNames = ["All", ...(subjects?.map((s) => s.name) ?? [])];
   const filtered = (topics ?? []).filter(
     (t) =>
-      (filter === "All" || t.subjectName === filter) &&
+      (filter === "All" || t.subjectName === filter || t.subject === filter || (t.is_custom && filter === "Your Courses")) &&
       t.title.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Auto-add "Your Courses" to filter if custom topics exist
+  if (topics.some((t: any) => t.is_custom) && !subjectNames.includes("Your Courses")) {
+    subjectNames.push("Your Courses");
+  }
+
+  const handleGenerateCourse = async (material: any) => {
+    if (!user) return;
+    setGeneratingFor(material.id);
+    try {
+      toast.info("Generating your AI Course. This may take a minute...");
+      const prompt = `Create a structured, step-by-step course based on this material. 
+Return ONLY a valid JSON object with the following structure:
+{
+  "topic_title": "Course Title",
+  "subject": "Main Subject",
+  "description": "Short description",
+  "lessons": [
+    {
+      "title": "Lesson 1: Introduction",
+      "content": "Detailed markdown content for the lesson. Use ## headings, bullet points, and clear explanations. Minimum 300 words per lesson."
+    },
+    // Generate exactly 3-5 comprehensive lessons
+  ]
+}
+
+Material Name: ${material.file_name}
+Material Content/Summary: ${material.extracted_text?.substring(0, 5000) || material.summary}`;
+
+      const res = await aiComplete({
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        maxTokens: 4000,
+      });
+
+      let jsonString = res;
+      if (jsonString.includes("```json")) jsonString = jsonString.split("```json")[1].split("```")[0];
+      else if (jsonString.includes("```")) jsonString = jsonString.split("```")[1];
+      
+      const parsed = JSON.parse(jsonString.trim());
+      
+      if (!parsed.lessons || !parsed.lessons.length) throw new Error("Invalid format");
+
+      const batch = writeBatch(db);
+      const newTopicRef = doc(collection(db, "topics"));
+      
+      batch.set(newTopicRef, {
+        title: parsed.topic_title,
+        subject: parsed.subject,
+        subjectName: parsed.subject,
+        subjectIcon: "file-text",
+        description: parsed.description,
+        lesson_count: parsed.lessons.length,
+        is_custom: true,
+        material_id: material.id,
+        user_id: user.uid,
+        created_at: new Date()
+      });
+
+      parsed.lessons.forEach((lesson: any, i: number) => {
+        const lessonRef = doc(collection(db, "lessons"));
+        batch.set(lessonRef, {
+          topic_id: newTopicRef.id,
+          title: lesson.title,
+          content: lesson.content,
+          order: i + 1,
+          created_at: new Date()
+        });
+      });
+
+      await batch.commit();
+      toast.success("AI Course generated successfully!");
+      queryClient.invalidateQueries({ queryKey: ["topics", user.uid] });
+      setFilter("Your Courses");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate course. Try again.");
+    } finally {
+      setGeneratingFor(null);
+    }
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
@@ -164,10 +258,56 @@ const LessonList = () => {
               </Link>
             ))}
 
-        {!isLoading && filtered.length === 0 && (
+        {!isLoading && filtered.length === 0 && filter !== "Your Courses" && (
           <div className="text-center py-12 text-muted-foreground">
             <BookOpen className="h-8 w-8 mx-auto mb-3 opacity-40" />
             <p className="text-sm">No topics found for "{search}"</p>
+          </div>
+        )}
+
+        {/* Uploaded Materials Generation Section */}
+        {materials && materials.length > 0 && (
+          <div className="mt-12 space-y-4">
+            <h2 className="text-xl font-bold text-foreground tracking-tight border-t border-border pt-6">
+              Create Course from Materials
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Turn your uploaded PDFs and text into structured, step-by-step lessons.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {materials.map((m: any) => {
+                const alreadyGenerated = topics.some((t: any) => t.material_id === m.id);
+                if (alreadyGenerated) return null;
+                return (
+                  <div key={m.id} className="bg-card border border-border rounded-xl p-5 flex flex-col justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-cta/10 flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-5 w-5 text-cta" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-foreground truncate">{m.file_name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Uploaded Material</div>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => handleGenerateCourse(m)}
+                      disabled={generatingFor === m.id}
+                      className="w-full bg-cta text-cta-foreground hover:bg-cta/90 text-sm gap-2"
+                    >
+                      {generatingFor === m.id ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Generating Course...</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4" /> Generate Course</>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
+              <Link to="/materials" className="border-2 border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center text-muted-foreground hover:text-foreground hover:border-cta/50 transition-colors gap-2 min-h-[140px]">
+                <Plus className="h-6 w-6" />
+                <span className="text-sm font-medium">Upload New Material</span>
+              </Link>
+            </div>
           </div>
         )}
       </div>

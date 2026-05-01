@@ -109,7 +109,7 @@ const Settings = () => {
           {/* Plan badge */}
           <div className="bg-accent text-accent-foreground rounded-xl p-4 space-y-2">
             <div className="text-xs font-bold uppercase tracking-wider">Current Plan</div>
-            <div className="text-lg font-bold">Vistar Pro</div>
+            <div className="text-lg font-bold">EduOnx Pro</div>
             <p className="text-xs opacity-80">Unlimited AI tutors & detailed progress analytics.</p>
             <Button size="sm" className="w-full bg-white/20 hover:bg-white/30 text-white text-xs mt-2">
               Manage Billing

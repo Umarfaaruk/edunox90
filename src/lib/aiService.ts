@@ -1,5 +1,5 @@
 /**
- * EDUNOX AI SERVICE — Groq Integration
+ * EDUONX AI SERVICE — Groq Integration
  * ======================================
  *
  * Centralized AI service using the Groq API (OpenAI-compatible).

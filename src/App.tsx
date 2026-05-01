@@ -32,7 +32,7 @@ import MaterialUpload from "./pages/materials/MaterialUpload";
 import AILearning from "./pages/materials/AILearning";
 import AITutor from "./pages/materials/AITutor";
 import Flashcards from "./pages/materials/Flashcards";
-import ConceptMap from "./pages/materials/ConceptMap";
+import { Link } from "react-router-dom";
 import StudyPlanner from "./pages/materials/StudyPlanner";
 import ProgressDashboard from "./pages/progress/ProgressDashboard";
 import TimerPage from "./pages/timer/TimerPage";
@@ -106,7 +106,7 @@ const App = () => (
                 <Route path="/materials/learn/:id" element={<ErrorBoundary><AILearning /></ErrorBoundary>} />
                 <Route path="/materials/tutor" element={<ErrorBoundary><AITutor /></ErrorBoundary>} />
                 <Route path="/materials/flashcards" element={<ErrorBoundary><Flashcards /></ErrorBoundary>} />
-                <Route path="/materials/concept-map" element={<ErrorBoundary><ConceptMap /></ErrorBoundary>} />
+
                 <Route path="/materials/planner" element={<ErrorBoundary><StudyPlanner /></ErrorBoundary>} />
                 <Route path="/progress" element={<ErrorBoundary><ProgressDashboard /></ErrorBoundary>} />
                 <Route path="/timer" element={<ErrorBoundary><TimerPage /></ErrorBoundary>} />

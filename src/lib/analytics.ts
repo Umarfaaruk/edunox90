@@ -1,5 +1,5 @@
 /**
- * EDUNOX ANALYTICS SYSTEM
+ * EDUONX ANALYTICS SYSTEM
  * ======================
  * 
  * Comprehensive performance tracking and insights generation

@@ -44,7 +44,7 @@ const NO_FILE_VALUE = "__none__";
 // Maximum document content to include in the system prompt (avoid token overflow)
 const MAX_DOC_CONTEXT_CHARS = 12_000;
 
-const GENERIC_SYSTEM_PROMPT = `You are EduNox AI Tutor — an expert, patient, and encouraging tutor that helps students learn and master any subject.
+const GENERIC_SYSTEM_PROMPT = `You are EduOnx AI Tutor — an expert, patient, and encouraging tutor that helps students learn and master any subject.
 
 Guidelines:
 - Give clear, step-by-step explanations
@@ -65,7 +65,7 @@ const getFileBasedSystemPrompt = (fileName: string, documentContent: string): st
       `\n\n[... Document truncated. Total length: ${documentContent.length} characters. The above represents the first ${MAX_DOC_CONTEXT_CHARS} characters.]`
     : documentContent;
 
-  return `You are EduNox AI Tutor specialized in helping students understand their uploaded study materials.
+  return `You are EduOnx AI Tutor specialized in helping students understand their uploaded study materials.
 
 IMPORTANT: You MUST answer questions STRICTLY BASED on the provided document content.
 - If the answer is in the document, provide a clear, comprehensive answer from the document

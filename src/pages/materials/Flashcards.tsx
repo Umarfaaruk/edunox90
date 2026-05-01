@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -7,11 +8,24 @@ import { aiComplete } from "@/lib/aiService";
 import { Button } from "@/components/ui/button";
 import { Loader2, BrainCircuit, RefreshCw, FileText, CheckCircle2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+
+
+interface FlashcardDoc {
+  id: string;
+  question: string;
+  answer: string;
+  next_review: number;
+  interval: number;
+  ease: number;
+  material_id: string;
+  user_id: string;
+  created_at: number;
+}
 
 export default function Flashcards() {
   const { user } = useAuth();
-  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const location = useLocation();
+  const [selectedMaterial, setSelectedMaterial] = useState<any>(location.state?.preselectedMaterial || null);
   const [generating, setGenerating] = useState(false);
   
   // Study State
@@ -39,7 +53,7 @@ export default function Flashcards() {
         where("user_id", "==", user.uid)
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => {
+      return (snap.docs.map(d => ({ id: d.id, ...d.data() })) as FlashcardDoc[]).sort((a, b) => {
         // Sort by next_review date so due cards are first
         const aDate = a.next_review || 0;
         const bDate = b.next_review || 0;

@@ -390,9 +390,9 @@ const MaterialUpload = () => {
         {viewMode === "grid" ? (
           <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredMaterials.map((f) => (
-              <div key={f.id} className="bg-card border border-border rounded-xl p-4 space-y-3 group relative">
-                <button onClick={() => handleDelete(f.id)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity" title="Delete file" aria-label="Delete file">
-                  <X className="h-3.5 w-3.5" />
+              <div key={f.id} className="bg-card border border-border rounded-xl p-4 space-y-3 relative">
+                <button onClick={() => handleDelete(f.id)} className="absolute top-2 right-2 text-muted-foreground/60 hover:text-destructive transition-colors bg-background/50 rounded-full p-1 z-10" title="Delete file" aria-label="Delete file">
+                  <X className="h-4 w-4" />
                 </button>
                 <div className="flex justify-center py-2">{fileIcon(f.content_type)}</div>
                 <div className="text-sm font-medium truncate">{f.file_name}</div>

@@ -62,7 +62,7 @@ async function tryQuietly<T>(promise: Promise<T>, label: string): Promise<T | nu
  * Local storage queue for failed saves.
  * Sessions that fail to save to Firestore are queued for retry.
  */
-const RETRY_QUEUE_KEY = "edunox_save_retry_queue";
+const RETRY_QUEUE_KEY = "eduonx_save_retry_queue";
 
 interface QueuedSession {
   userId: string;

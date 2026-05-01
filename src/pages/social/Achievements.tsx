@@ -30,16 +30,10 @@ const iconMap: Record<string, React.ElementType> = {
 const DEFAULT_ACHIEVEMENTS = [
   { id: "streak_7", key: "streak_7", name: "Week Warrior", description: "Maintain a 7-day study streak", icon: "flame", xp_reward: 50, threshold: 7, sort_order: 1 },
   { id: "streak_30", key: "streak_30", name: "Monthly Master", description: "Maintain a 30-day study streak", icon: "flame", xp_reward: 200, threshold: 30, sort_order: 2 },
-  { id: "first_quiz", key: "first_quiz", name: "Quiz Beginner", description: "Complete your first quiz", icon: "target", xp_reward: 20, threshold: 1, sort_order: 3 },
-  { id: "quiz_master", key: "quiz_master", name: "Quiz Master", description: "Complete 50 quizzes", icon: "trophy", xp_reward: 150, threshold: 50, sort_order: 4 },
-  { id: "perfect_score", key: "perfect_score", name: "Perfect Score", description: "Get 100% on a quiz", icon: "star", xp_reward: 30, threshold: 1, sort_order: 5 },
-  { id: "sharp_shooter", key: "sharp_shooter", name: "Sharpshooter", description: "Score 90%+ on 10 quizzes", icon: "target", xp_reward: 100, threshold: 10, sort_order: 6 },
-  { id: "xp_hunter", key: "xp_hunter", name: "XP Hunter", description: "Earn 1,000 XP total", icon: "zap", xp_reward: 50, threshold: 1000, sort_order: 7 },
-  { id: "xp_legend", key: "xp_legend", name: "XP Legend", description: "Earn 5,000 XP total", icon: "award", xp_reward: 200, threshold: 5000, sort_order: 8 },
-  { id: "study_hour", key: "study_hour", name: "Focused Learner", description: "Study for 60 minutes total", icon: "clock", xp_reward: 30, threshold: 60, sort_order: 9 },
-  { id: "study_marathon", key: "study_marathon", name: "Study Marathon", description: "Study for 10 hours total", icon: "clock", xp_reward: 150, threshold: 600, sort_order: 10 },
-  { id: "first_doubt", key: "first_doubt", name: "Curious Mind", description: "Ask your first doubt", icon: "message-circle-question", xp_reward: 15, threshold: 1, sort_order: 11 },
-  { id: "bookworm", key: "bookworm", name: "Bookworm", description: "Complete 20 lessons", icon: "book-open", xp_reward: 100, threshold: 20, sort_order: 12 },
+  { id: "xp_hunter", key: "xp_hunter", name: "XP Hunter", description: "Earn 1,000 XP total", icon: "zap", xp_reward: 50, threshold: 1000, sort_order: 3 },
+  { id: "xp_legend", key: "xp_legend", name: "XP Legend", description: "Earn 5,000 XP total", icon: "award", xp_reward: 200, threshold: 5000, sort_order: 4 },
+  { id: "study_hour", key: "study_hour", name: "Focused Learner", description: "Study for 60 minutes total", icon: "clock", xp_reward: 30, threshold: 60, sort_order: 5 },
+  { id: "bookworm", key: "bookworm", name: "Bookworm", description: "Complete 20 lessons", icon: "book-open", xp_reward: 100, threshold: 20, sort_order: 6 },
 ];
 
 const Achievements = () => {

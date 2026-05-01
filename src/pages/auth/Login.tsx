@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { getReadableFirebaseAuthError } from "@/lib/firebaseAuthErrors";
 
@@ -17,6 +18,7 @@ const Login = () => {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect to the page the user was trying to visit, or dashboard
@@ -38,7 +40,27 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      
+      // Ensure profile exists for reliable functioning
+      const userRef = doc(db, "profiles", result.user.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
+          email: result.user.email,
+          full_name: result.user.displayName || "User",
+          created_at: new Date(),
+          total_xp: 0,
+          current_streak: 0,
+          longest_streak: 0,
+        });
+        await setDoc(doc(db, "user_preferences", result.user.uid), {
+          theme: "dark",
+          notifications_enabled: true
+        });
+      }
+      
       toast.success("Logged in with Google!");
       navigate(from, { replace: true });
     } catch (error: any) {
@@ -163,12 +185,19 @@ const Login = () => {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="••••••••"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 h-11 focus-visible:ring-primary"
+                  className="pl-10 pr-10 h-11 focus-visible:ring-primary"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 

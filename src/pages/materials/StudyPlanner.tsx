@@ -14,6 +14,7 @@ interface StudyPlanDay {
   day: number;
   title: string;
   tasks: string[];
+  estimated_minutes: number;
   completed: boolean;
 }
 
@@ -31,6 +32,7 @@ export default function StudyPlanner() {
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
   const [examDateStr, setExamDateStr] = useState("");
+  const [hoursPerDay, setHoursPerDay] = useState(2);
   
   const { data: materials, isLoading: materialsLoading } = useQuery({
     queryKey: ["user-materials", user?.uid],
@@ -70,16 +72,12 @@ export default function StudyPlanner() {
     
     const examDate = new Date(examDateStr);
     const today = new Date();
-    const daysDiff = Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-    
-    if (daysDiff <= 0) {
-      toast.error("Target date must be in the future");
-      return;
-    }
+    const daysDiff = Math.max(1, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 3600 * 24)));
 
     setGenerating(true);
     try {
       const prompt = `Act as an expert study planner. I need to master the following material in exactly ${daysDiff} days.
+I can dedicate ${hoursPerDay} hours per day to studying.
 Break the content down into a daily study roadmap.
 Return ONLY a valid JSON array of objects, where each object represents a day.
 Format:
@@ -88,6 +86,7 @@ Format:
     "day": 1,
     "title": "Introduction & Basics",
     "tasks": ["Read chapter 1", "Define core terms"],
+    "estimated_minutes": 120,
     "completed": false
   }
 ]
@@ -229,9 +228,13 @@ ${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summar
                 </p>
               </div>
               <div className="max-w-xs mx-auto space-y-4">
-                 <div className="space-y-2">
+                 <div className="space-y-2 text-left">
                    <label className="text-sm font-medium">Target / Exam Date</label>
-                   <Input type="date" value={examDateStr} onChange={e => setExamDateStr(e.target.value)} />
+                   <Input type="date" value={examDateStr} onChange={e => setExamDateStr(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+                 </div>
+                 <div className="space-y-2 text-left">
+                   <label className="text-sm font-medium">Study Hours Per Day</label>
+                   <Input type="number" min="1" max="12" value={hoursPerDay} onChange={e => setHoursPerDay(Number(e.target.value))} />
                  </div>
                  <Button onClick={handleGenerate} disabled={generating || !examDateStr} className="w-full bg-success text-success-foreground hover:bg-success/90">
                    Generate Roadmap
@@ -268,6 +271,9 @@ ${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summar
                           <h4 className={`font-semibold text-sm ${dayObj.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                             {dayObj.title}
                           </h4>
+                          <span className="ml-auto text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                            ~{dayObj.estimated_minutes || 60} min
+                          </span>
                         </div>
                         <ul className={`text-sm space-y-1.5 pl-5 list-disc ${dayObj.completed ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
                           {dayObj.tasks?.map((task: string, tIdx: number) => (

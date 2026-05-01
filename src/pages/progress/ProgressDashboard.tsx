@@ -1,11 +1,48 @@
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Calendar, FileText, Flame, BarChart3, Target } from "lucide-react";
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Calendar, FileText, Flame, BarChart3, Target, Users, Send } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useQuery } from "@tanstack/react-query";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs, addDoc } from "firebase/firestore";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const ProgressDashboard = () => {
+  const { user } = useAuth();
   const { streak, avgScore, progressAnalytics, weakTopics, isLoading } = useDashboardData();
+  const [isParentMode, setIsParentMode] = useState(false);
+  const [guidanceText, setGuidanceText] = useState("");
+
+  const { data: guidanceNotes, refetch: refetchNotes } = useQuery({
+    queryKey: ["parent-guidance", user?.uid],
+    queryFn: async () => {
+       if (!user) return [];
+       const q = query(collection(db, "parent_guidance"), where("student_id", "==", user.uid), orderBy("created_at", "desc"));
+       const snap = await getDocs(q);
+       return snap.docs.map(d => ({id: d.id, ...d.data()} as any));
+    },
+    enabled: !!user
+  });
+
+  const handleAddGuidance = async () => {
+    if (!guidanceText.trim() || !user) return;
+    try {
+      await addDoc(collection(db, "parent_guidance"), {
+        student_id: user.uid,
+        text: guidanceText.trim(),
+        created_at: Date.now()
+      });
+      setGuidanceText("");
+      refetchNotes();
+      toast.success("Guidance note added successfully!");
+    } catch (e) {
+      toast.error("Failed to add guidance");
+    }
+  };
 
   const totalHours = (progressAnalytics.monthSeconds / 3600).toFixed(1);
   const weekHours = (progressAnalytics.weekSeconds / 3600).toFixed(1);
@@ -40,7 +77,16 @@ const ProgressDashboard = () => {
           <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Your Learning Journey</h1>
           <p className="text-muted-foreground text-sm mt-1">Detailed breakdown of your study habits and academic performance.</p>
         </div>
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className={`gap-2 ${isParentMode ? 'border-accent text-accent bg-accent/10' : 'text-muted-foreground'}`}
+            onClick={() => setIsParentMode(!isParentMode)}
+          >
+            <Users className="h-4 w-4" />
+            {isParentMode ? "Exit Parent Mode" : "Parent View"}
+          </Button>
           <span className="text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-full">Last 30 Days</span>
         </div>
       </div>
@@ -293,19 +339,61 @@ const ProgressDashboard = () => {
       {/* Weak topics alert */}
       {(weakTopics?.length ?? 0) > 0 && (
         <div className="bg-secondary/50 border border-accent/10 rounded-xl p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-accent" />
-            <span className="font-semibold text-sm text-foreground">Needs Attention</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-accent" />
+              <span className="font-semibold text-sm text-foreground">Needs Attention (Weak Areas)</span>
+            </div>
+            {isParentMode && <span className="text-xs text-accent font-medium">Monitor & Guide</span>}
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             {weakTopics?.map((t: any) => (
               <div key={t.topic} className="bg-card border border-border rounded-lg px-4 py-3 text-sm text-muted-foreground">
-                {t.topic} — {t.avgScore}%
+                <span className="font-medium text-foreground">{t.topic}</span> — Average Score: {t.avgScore}%
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Parent Guidance Section */}
+      <div className="bg-card border border-border rounded-xl p-6 mt-6 space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="h-5 w-5 text-accent" />
+          <h3 className="font-semibold text-foreground">Parental Guidance & Feedback</h3>
+        </div>
+
+        {isParentMode && (
+          <div className="flex gap-2 mb-6">
+            <Input 
+              placeholder="Add a note of encouragement or study advice for your child..." 
+              value={guidanceText}
+              onChange={(e) => setGuidanceText(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleAddGuidance} className="bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
+              <Send className="h-4 w-4" /> Post Note
+            </Button>
+          </div>
+        )}
+
+        {guidanceNotes && guidanceNotes.length > 0 ? (
+          <div className="space-y-3">
+            {guidanceNotes.map((note: any) => (
+              <div key={note.id} className="bg-muted/30 border border-border rounded-lg p-4 relative">
+                <div className="text-sm text-foreground whitespace-pre-wrap">{note.text}</div>
+                <div className="text-[10px] text-muted-foreground mt-2">
+                  {new Date(note.created_at).toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+           <p className="text-sm text-muted-foreground italic">
+             No guidance notes added yet. {isParentMode ? "Use the input above to provide guidance." : "Parents can leave feedback and study tips here."}
+           </p>
+        )}
+      </div>
     </div>
   );
 };

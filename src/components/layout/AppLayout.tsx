@@ -13,8 +13,7 @@ const sidebarLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/lessons", icon: BookOpen, label: "Lessons" },
   { to: "/doubts", icon: MessageCircleQuestion, label: "Ask Doubt" },
-  { to: "/doubts/camera", icon: Camera, label: "Snap & Learn" },
-  { to: "/quiz", icon: Gamepad2, label: "Practice Quiz" },
+  { to: "/quiz", icon: Gamepad2, label: "Practice Arena" },
   { to: "/materials", icon: Upload, label: "Materials" },
   { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },
   { to: "/progress", icon: BarChart3, label: "Progress" },
@@ -28,9 +27,8 @@ const sidebarLinks = [
 // Mobile nav shows only the 5 most important routes
 const mobileNavLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { to: "/doubts/camera", icon: Camera, label: "Snap" },
-  { to: "/doubts", icon: MessageCircleQuestion, label: "Doubt" },
-  { to: "/quiz", icon: Gamepad2, label: "Quiz" },
+  { to: "/doubts", icon: MessageCircleQuestion, label: "Ask Doubt" },
+  { to: "/quiz", icon: Gamepad2, label: "Practice Arena" },
   { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },
 ];
 
