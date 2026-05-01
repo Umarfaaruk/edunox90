@@ -1,14 +1,18 @@
-import { User, Zap, Trophy, BookOpen, Clock, Flame, Settings, ArrowRight } from "lucide-react";
+import { User, Zap, Trophy, BookOpen, Clock, Flame, Settings, ArrowRight, Camera } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { toast } from "sonner";
+import { useRef } from "react";
 
 const Profile = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile", user?.uid],
@@ -97,9 +101,67 @@ const Profile = () => {
 
       {/* Profile header card */}
       <div className="bg-card border border-border rounded-xl p-6 flex flex-col sm:flex-row items-center gap-6">
-        {/* Avatar */}
-        <div className="h-20 w-20 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-          <User className="h-10 w-10 text-primary-foreground" />
+        {/* Avatar — clickable for upload */}
+        <div 
+          className="relative h-20 w-20 rounded-full flex-shrink-0 cursor-pointer group"
+          onClick={() => avatarInputRef.current?.click()}
+          title="Click to change profile picture"
+        >
+          {profile?.avatar_url ? (
+            <img 
+              src={profile.avatar_url} 
+              alt={displayName}
+              className="h-20 w-20 rounded-full object-cover border-2 border-border group-hover:border-primary transition-colors"
+            />
+          ) : (
+            <div className="h-20 w-20 rounded-full bg-primary flex items-center justify-center group-hover:bg-primary/80 transition-colors">
+              <User className="h-10 w-10 text-primary-foreground" />
+            </div>
+          )}
+          <div className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-card border-2 border-border flex items-center justify-center shadow-sm group-hover:border-primary transition-colors">
+            <Camera className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary" />
+          </div>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !user) return;
+              if (file.size > 2 * 1024 * 1024) {
+                toast.error("Image must be under 2MB");
+                return;
+              }
+              try {
+                // Resize and compress to base64
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = document.createElement('img');
+                const reader = new FileReader();
+                reader.onload = async (ev) => {
+                  img.onload = async () => {
+                    const size = 200;
+                    canvas.width = size;
+                    canvas.height = size;
+                    // Center crop
+                    const minDim = Math.min(img.width, img.height);
+                    const sx = (img.width - minDim) / 2;
+                    const sy = (img.height - minDim) / 2;
+                    ctx?.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    await updateDoc(doc(db, 'profiles', user.uid), { avatar_url: dataUrl });
+                    queryClient.invalidateQueries({ queryKey: ['profile', user.uid] });
+                    toast.success('Profile picture updated!');
+                  };
+                  img.src = ev.target?.result as string;
+                };
+                reader.readAsDataURL(file);
+              } catch (err) {
+                toast.error('Failed to update profile picture');
+              }
+            }}
+          />
         </div>
 
         <div className="flex-1 text-center sm:text-left">

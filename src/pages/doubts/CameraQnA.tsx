@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Camera, Send, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,8 +9,10 @@ import { aiVisionComplete, ChatMessage } from "@/lib/aiService";
 import ReactMarkdown from "react-markdown";
 
 const CameraQnA = () => {
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [question, setQuestion] = useState("");
+  const location = useLocation();
+  const preloaded = location.state as { preloadedImage?: string; preloadedQuestion?: string } | null;
+  const [imagePreview, setImagePreview] = useState<string | null>(preloaded?.preloadedImage || null);
+  const [question, setQuestion] = useState(preloaded?.preloadedQuestion || "");
   const [answer, setAnswer] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +82,7 @@ const CameraQnA = () => {
       <div className="mb-8 space-y-2">
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
           <Camera className="h-8 w-8 text-primary" />
-          Snap & Learn
+          Ask Doubt — Image Q&A
         </h1>
         <p className="text-muted-foreground">
           Take a photo of a math problem, a diagram, or any text to get instant AI-powered explanations.

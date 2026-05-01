@@ -32,7 +32,6 @@ import MaterialUpload from "./pages/materials/MaterialUpload";
 import AILearning from "./pages/materials/AILearning";
 import AITutor from "./pages/materials/AITutor";
 import Flashcards from "./pages/materials/Flashcards";
-import { Link } from "react-router-dom";
 import StudyPlanner from "./pages/materials/StudyPlanner";
 import ProgressDashboard from "./pages/progress/ProgressDashboard";
 import TimerPage from "./pages/timer/TimerPage";
