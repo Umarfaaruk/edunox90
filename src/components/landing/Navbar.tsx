@@ -18,7 +18,7 @@ const Navbar = () => {
             <img 
               src={eduonxLogo} 
               alt="EduOnx Logo" 
-              className="h-[100px] md:h-[140px] lg:h-[180px] w-auto max-w-[360px] md:max-w-[480px] object-contain object-left" 
+              className="h-[40px] md:h-[50px] lg:h-[60px] w-auto max-w-[240px] object-contain object-left mix-blend-screen invert grayscale brightness-200 opacity-90" 
             />
           </Link>
         </div>

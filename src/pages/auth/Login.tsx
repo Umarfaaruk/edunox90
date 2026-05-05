@@ -79,7 +79,7 @@ const Login = () => {
             <img
               src={eduonxLogo}
               alt="EduOnx Logo"
-              className="h-[280px] w-auto max-w-full brightness-0 invert opacity-80 object-contain"
+              className="h-[80px] w-auto max-w-[300px] object-contain invert grayscale brightness-200 mix-blend-screen opacity-90"
             />
           </Link>
         </div>
@@ -121,7 +121,7 @@ const Login = () => {
         <div className="w-full max-w-md space-y-8">
 
           <div className="lg:hidden flex items-center justify-center mb-8 shrink-0 w-full">
-            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[240px] w-auto max-w-full object-contain" />
+            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[60px] w-auto max-w-[200px] object-contain invert grayscale brightness-200 mix-blend-screen" />
           </div>
 
           <div>

@@ -21,7 +21,7 @@ const Footer = () => (
         {/* Brand */}
         <div className="col-span-2 md:col-span-1">
           <Link to="/" className="flex items-center mb-4 w-max shrink-0 max-w-full">
-            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[200px] md:h-[260px] w-auto max-w-[300px] md:max-w-[400px] brightness-0 invert object-contain" />
+            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[60px] md:h-[80px] w-auto max-w-[200px] md:max-w-[300px] object-contain invert grayscale brightness-200 mix-blend-screen opacity-90" />
           </Link>
           <p className="text-xs text-soft leading-relaxed">
             AI-powered learning platform for smarter studying.

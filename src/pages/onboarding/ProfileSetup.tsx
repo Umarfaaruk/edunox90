@@ -75,7 +75,7 @@ const ProfileSetup = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center shrink-0 w-full justify-center lg:justify-start">
-          <img src={eduonxLogo} alt="EduOnx Logo" className="h-[180px] w-auto max-w-full lg:max-w-[250px] object-contain" />
+          <img src={eduonxLogo} alt="EduOnx Logo" className="h-[60px] w-auto max-w-full lg:max-w-[250px] object-contain invert grayscale brightness-200 mix-blend-screen opacity-90" />
         </div>
       </div>
 

@@ -43,9 +43,9 @@ const AppLayout = () => {
       {/* ── Sidebar (hidden in Deep Focus Mode) ────────────────── */}
       {!isDeepFocus && (
         <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card fixed inset-y-0 left-0 z-30">
-          <div className="px-6 py-8 border-b border-border flex-shrink-0">
+          <div className="px-6 py-6 border-b border-border flex-shrink-0">
             <Link to="/" className="flex items-center shrink-0 w-full justify-start">
-              <img src={eduonxLogo} alt="EduOnx Logo" className="h-[150px] w-auto max-w-[300px] object-contain object-left scale-[1.35] origin-left" />
+              <img src={eduonxLogo} alt="EduOnx Logo" className="h-[40px] w-auto max-w-[200px] object-contain object-left mix-blend-screen invert grayscale brightness-200" />
             </Link>
           </div>
 
