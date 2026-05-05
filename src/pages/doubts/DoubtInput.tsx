@@ -137,7 +137,9 @@ const DoubtInput = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Ask a Doubt</h1>
-          <p className="text-muted-foreground text-sm mt-1">Get step-by-step explanations from AI</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Upload your materials or type a specific question below. You can ask me to explain concepts, summarize text, or solve complex problems based on your provided data.
+          </p>
         </div>
         {(history?.length ?? 0) > 0 && (
           <Link to="/doubts/history" className="text-xs text-accent hover:underline flex items-center gap-1">
@@ -226,25 +228,6 @@ const DoubtInput = () => {
         </div>
       </div>
 
-      {/* Quick subject shortcuts */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { icon: Calculator, label: "Math", color: "bg-secondary text-navy" },
-          { icon: Atom, label: "Science", color: "bg-accent/10 text-accent" },
-          { icon: BookOpen, label: "English", color: "bg-secondary text-navy" },
-        ].map((s) => (
-          <button
-            key={s.label}
-            onClick={() => setQuestion(`Help me with ${s.label}: `)}
-            className="bg-card border border-border rounded-xl p-4 text-center hover:border-accent/50 transition-colors"
-          >
-            <div className={`h-10 w-10 rounded-lg ${s.color} flex items-center justify-center mx-auto mb-2`}>
-              <s.icon className="h-5 w-5" />
-            </div>
-            <span className="text-sm font-medium text-foreground">{s.label}</span>
-          </button>
-        ))}
-      </div>
 
       {/* Recent doubts from DB */}
       {(history?.length ?? 0) > 0 && (

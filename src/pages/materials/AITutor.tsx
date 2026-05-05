@@ -30,13 +30,7 @@ interface Material {
   key_topics: string[];
 }
 
-const SUBJECT_STARTERS = [
-  { icon: Calculator, label: "Math", prompt: "Help me understand calculus derivatives step by step" },
-  { icon: Atom, label: "Physics", prompt: "Explain Newton's laws of motion with real-world examples" },
-  { icon: BookOpen, label: "English", prompt: "How do I write a strong argumentative essay?" },
-  { icon: Code2, label: "Coding", prompt: "Explain how recursion works in programming" },
-  { icon: Globe, label: "History", prompt: "What were the main causes of World War I?" },
-];
+
 
 // Sentinel value for "no file selected" in Radix Select (empty string is invalid)
 const NO_FILE_VALUE = "__none__";
@@ -525,31 +519,8 @@ const AITutor = () => {
                   </div>
                   <h2 className="text-xl font-bold text-foreground">What would you like to learn?</h2>
                   <p className="text-sm text-muted-foreground max-w-md">
-                    I can help you understand any topic, solve problems step-by-step,
-                    or explain difficult concepts in simple terms.
+                    Upload your materials or type a specific question below. You can ask me to explain concepts, summarize text, or solve complex problems based on your provided data.
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    📄 Upload a PDF above to ask questions about it
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-lg">
-                  {SUBJECT_STARTERS.map((s) => (
-                    <button
-                      key={s.label}
-                      onClick={() => handleStarterClick(s.prompt)}
-                      className="bg-card border border-border rounded-xl p-4 text-center hover:border-primary/50 hover:shadow-sm transition-all group"
-                    >
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2 group-hover:bg-primary/20 transition-colors">
-                        <s.icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <span className="text-sm font-medium text-foreground">{s.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  Or type your own question below ↓
                 </div>
               </>
             )}

@@ -64,46 +64,53 @@ export default function Flashcards() {
   const handleGenerate = async () => {
     if (!selectedMaterial || !user) return;
     setGenerating(true);
-    try {
-      const prompt = `Extract exactly 10 key flashcard question-answer pairs from the following study material. 
+    let pairs = null;
+    let attempt = 0;
+    const maxRetries = 3;
+    let lastError = null;
+
+    while (attempt < maxRetries && !pairs) {
+      try {
+        attempt++;
+        const prompt = `Extract exactly 10 key flashcard question-answer pairs from the following study material. 
 Return ONLY a valid JSON array of objects with "question" and "answer" string keys. Keep answers concise (1-3 sentences).
 
 Content:
 ${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summary}`;
 
-      const res = await aiComplete({
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        maxTokens: 2000,
-      });
+        const res = await aiComplete({
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          maxTokens: 2000,
+        });
 
-      let jsonString = res;
-      if (jsonString.includes("```json")) {
-        jsonString = jsonString.split("```json")[1].split("```")[0];
-      } else if (jsonString.includes("```")) {
-         const parts = jsonString.split("```");
-         if (parts.length >= 3) {
-            jsonString = parts[1];
-         }
-      }
+        let jsonString = res;
+        if (jsonString.includes("```json")) {
+          jsonString = jsonString.split("```json")[1].split("```")[0];
+        } else if (jsonString.includes("```")) {
+           const parts = jsonString.split("```");
+           if (parts.length >= 3) {
+              jsonString = parts[1];
+           }
+        }
 
-      const firstIdx = jsonString.indexOf('[');
-      const lastIdx = jsonString.lastIndexOf(']');
-      if (firstIdx === -1 || lastIdx === -1) {
-        throw new Error("Failed to locate JSON array in AI output");
-      }
-      jsonString = jsonString.substring(firstIdx, lastIdx + 1);
-      
-      let pairs;
-      try {
+        const firstIdx = jsonString.indexOf('[');
+        const lastIdx = jsonString.lastIndexOf(']');
+        if (firstIdx === -1 || lastIdx === -1) {
+          throw new Error("Failed to locate JSON array in AI output");
+        }
+        jsonString = jsonString.substring(firstIdx, lastIdx + 1);
+        
         pairs = JSON.parse(jsonString);
-      } catch (parseErr) {
-        console.error("Raw string that failed to parse:", jsonString);
-        throw new Error("Failed to parse AI output as JSON");
+      } catch (err) {
+        lastError = err;
+        console.warn(`Retry ${attempt} failed:`, err);
       }
+    }
 
-      if (!Array.isArray(pairs) || pairs.length === 0) {
-        throw new Error("AI returned no flashcard pairs");
+    try {
+      if (!pairs || !Array.isArray(pairs) || pairs.length === 0) {
+        throw lastError || new Error("AI returned no flashcard pairs after multiple attempts.");
       }
 
       for (const pair of pairs) {

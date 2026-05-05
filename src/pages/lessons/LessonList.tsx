@@ -100,9 +100,17 @@ const LessonList = () => {
   const handleGenerateCourse = async (material: any) => {
     if (!user) return;
     setGeneratingFor(material.id);
-    try {
-      toast.info("Generating your AI Course. This may take a minute...");
-      const prompt = `Create a structured, step-by-step course based on this material. 
+    toast.info("Generating your AI Course. This may take a minute...");
+    
+    let parsed = null;
+    let attempt = 0;
+    const maxRetries = 3;
+    let lastError = null;
+
+    while (attempt < maxRetries && !parsed) {
+      try {
+        attempt++;
+        const prompt = `Create a structured, step-by-step course based on this material. 
 Return ONLY a valid JSON object with the following structure:
 {
   "topic_title": "Course Title",
@@ -120,19 +128,28 @@ Return ONLY a valid JSON object with the following structure:
 Material Name: ${material.file_name}
 Material Content/Summary: ${material.extracted_text?.substring(0, 5000) || material.summary}`;
 
-      const res = await aiComplete({
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        maxTokens: 4000,
-      });
+        const res = await aiComplete({
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          maxTokens: 4000,
+        });
 
-      let jsonString = res;
-      if (jsonString.includes("```json")) jsonString = jsonString.split("```json")[1].split("```")[0];
-      else if (jsonString.includes("```")) jsonString = jsonString.split("```")[1];
-      
-      const parsed = JSON.parse(jsonString.trim());
-      
-      if (!parsed.lessons || !parsed.lessons.length) throw new Error("Invalid format");
+        let jsonString = res;
+        if (jsonString.includes("```json")) jsonString = jsonString.split("```json")[1].split("```")[0];
+        else if (jsonString.includes("```")) jsonString = jsonString.split("```")[1];
+        
+        parsed = JSON.parse(jsonString.trim());
+        
+        if (!parsed.lessons || !parsed.lessons.length) throw new Error("Invalid format");
+      } catch (err) {
+        lastError = err;
+        console.warn(`Retry ${attempt} failed:`, err);
+        parsed = null;
+      }
+    }
+
+    try {
+      if (!parsed) throw lastError || new Error("Failed to generate course after multiple attempts.");
 
       const batch = writeBatch(db);
       const newTopicRef = doc(collection(db, "topics"));

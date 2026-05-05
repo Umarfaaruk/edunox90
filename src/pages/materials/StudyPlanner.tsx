@@ -75,8 +75,15 @@ export default function StudyPlanner() {
     const daysDiff = Math.max(1, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 3600 * 24)));
 
     setGenerating(true);
-    try {
-      const prompt = `Act as an expert study planner. I need to master the following material in exactly ${daysDiff} days.
+    let schedule = null;
+    let attempt = 0;
+    const maxRetries = 3;
+    let lastError = null;
+
+    while (attempt < maxRetries && !schedule) {
+      try {
+        attempt++;
+        const prompt = `Act as an expert study planner. I need to master the following material in exactly ${daysDiff} days.
 I can dedicate ${hoursPerDay} hours per day to studying.
 Break the content down into a daily study roadmap.
 Return ONLY a valid JSON array of objects, where each object represents a day.
@@ -95,41 +102,39 @@ Limit to max 14 days (if more than 14 days, group them into weekly or bi-weekly 
 Content:
 ${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summary}`;
 
-      const res = await aiComplete({
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        maxTokens: 2500,
-      });
+        const res = await aiComplete({
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          maxTokens: 2500,
+        });
 
-      let jsonString = res;
-      // Extract from markdown code block if present
-      if (jsonString.includes("```json")) {
-        jsonString = jsonString.split("```json")[1].split("```")[0];
-      } else if (jsonString.includes("```")) {
-         // Some models just use ``` without json
-         const parts = jsonString.split("```");
-         if (parts.length >= 3) {
-            jsonString = parts[1];
-         }
-      }
+        let jsonString = res;
+        if (jsonString.includes("```json")) {
+          jsonString = jsonString.split("```json")[1].split("```")[0];
+        } else if (jsonString.includes("```")) {
+           const parts = jsonString.split("```");
+           if (parts.length >= 3) {
+              jsonString = parts[1];
+           }
+        }
 
-      // Ensure we only parse from the first [ to the last ]
-      const firstIdx = jsonString.indexOf('[');
-      const lastIdx = jsonString.lastIndexOf(']');
-      
-      if (firstIdx === -1 || lastIdx === -1) {
-        throw new Error("Failed to locate JSON array in AI output");
-      }
-      
-      jsonString = jsonString.substring(firstIdx, lastIdx + 1);
-      
-      let schedule;
-      try {
+        const firstIdx = jsonString.indexOf('[');
+        const lastIdx = jsonString.lastIndexOf(']');
+        
+        if (firstIdx === -1 || lastIdx === -1) {
+          throw new Error("Failed to locate JSON array in AI output");
+        }
+        
+        jsonString = jsonString.substring(firstIdx, lastIdx + 1);
         schedule = JSON.parse(jsonString);
-      } catch (parseErr) {
-        console.error("Raw string that failed to parse:", jsonString);
-        throw new Error("Failed to parse AI output as JSON");
+      } catch (err) {
+        lastError = err;
+        console.warn(`Retry ${attempt} failed:`, err);
       }
+    }
+
+    try {
+      if (!schedule) throw lastError || new Error("Failed to generate schedule after multiple attempts.");
 
       await addDoc(collection(db, "study_plans"), {
         user_id: user.uid,

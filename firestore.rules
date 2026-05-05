@@ -112,7 +112,7 @@ service cloud.firestore {
     }
 
     match /feedback/{feedbackId} {
-      allow create: if isAuthenticated();
+      allow create: if true;
       allow read, update, delete: if isFeedbackViewer();
     }
     
