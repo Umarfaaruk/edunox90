@@ -90,6 +90,11 @@ async function extractTextFromFile(file: File): Promise<string> {
     return await extractTextFromPDF(file);
   }
 
+  // Images
+  if (file.type.startsWith("image/")) {
+    return `[Image Document: ${file.name}] The AI tutor can help with questions about topics described in the filename or analyze the image content if asked.`;
+  }
+
   return `[Document: ${file.name}] This file type requires server-side processing for full text extraction.`;
 }
 
@@ -224,6 +229,7 @@ const MaterialUpload = () => {
         summary: string; 
         key_topics: string[]; 
         content_length: number;
+        file_data?: string;
         uploaded_at?: any;
         user_id: string;
       }));
@@ -260,6 +266,39 @@ const MaterialUpload = () => {
           setUploadProgress(`Extracting text from ${file.name}...`);
           const extractedText = await extractTextFromFile(file);
 
+          let fileData = null;
+          if (file.type.startsWith("image/")) {
+             setUploadProgress(`Optimizing image ${file.name}...`);
+             const canvas = document.createElement('canvas');
+             const ctx = canvas.getContext('2d');
+             const img = document.createElement('img');
+             const reader = new FileReader();
+             fileData = await new Promise<string>((resolve) => {
+               reader.onload = (ev) => {
+                 img.onload = () => {
+                   const maxDim = 1200;
+                   let width = img.width;
+                   let height = img.height;
+                   if (width > maxDim || height > maxDim) {
+                     if (width > height) {
+                       height = Math.round((height * maxDim) / width);
+                       width = maxDim;
+                     } else {
+                       width = Math.round((width * maxDim) / height);
+                       height = maxDim;
+                     }
+                   }
+                   canvas.width = width;
+                   canvas.height = height;
+                   ctx?.drawImage(img, 0, 0, width, height);
+                   resolve(canvas.toDataURL('image/jpeg', 0.8));
+                 };
+                 img.src = ev.target?.result as string;
+               };
+               reader.readAsDataURL(file);
+             });
+          }
+
           setUploadProgress(`Analyzing ${file.name} with AI...`);
           const analysis = await analyzeWithAI(extractedText, file.name);
           const { summary, keyTopics } = analysis;
@@ -271,6 +310,7 @@ const MaterialUpload = () => {
             summary: summary,
             key_topics: keyTopics,
             content_length: extractedText.length,
+            file_data: fileData,
             concepts: keyTopics.map((t, i) => ({
               name: t,
               importance: i < 3 ? "critical" : "important",
@@ -335,11 +375,20 @@ const MaterialUpload = () => {
     return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${currentStyle}`}>{status === 'ready' || status === 'completed' ? 'AI Ready' : status}</span>;
   };
 
-  const fileIcon = (contentType: string | null) => (
-    <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${contentType?.includes("pdf") ? "bg-destructive/10" : "bg-secondary"}`}>
-      <FileText className={`h-5 w-5 ${contentType?.includes("pdf") ? "text-destructive" : "text-[hsl(var(--navy))]"}`} />
-    </div>
-  );
+  const fileIcon = (material: any) => {
+    if (material?.content_type?.startsWith("image/") && material?.file_data) {
+      return (
+        <div className="h-10 w-10 rounded-lg overflow-hidden border border-border">
+          <img src={material.file_data} alt={material.file_name} className="h-full w-full object-cover" />
+        </div>
+      );
+    }
+    return (
+      <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${material?.content_type?.includes("pdf") ? "bg-destructive/10" : "bg-secondary"}`}>
+        <FileText className={`h-5 w-5 ${material?.content_type?.includes("pdf") ? "text-destructive" : "text-[hsl(var(--navy))]"}`} />
+      </div>
+    );
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
@@ -359,7 +408,7 @@ const MaterialUpload = () => {
         </div>
       </div>
 
-      <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt,.md" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} aria-label="Upload study materials" />
+      <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt,.md,image/png,image/jpeg,image/webp" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} aria-label="Upload study materials" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -394,7 +443,7 @@ const MaterialUpload = () => {
                 <button onClick={() => handleDelete(f.id)} className="absolute top-2 right-2 text-muted-foreground/60 hover:text-destructive transition-colors bg-background/50 rounded-full p-1 z-10" title="Delete file" aria-label="Delete file">
                   <X className="h-4 w-4" />
                 </button>
-                <div className="flex justify-center py-2">{fileIcon(f.content_type)}</div>
+                <div className="flex justify-center py-2">{fileIcon(f)}</div>
                 <div className="text-sm font-medium truncate">{f.file_name}</div>
                 {statusBadge(f.processing_status)}
                 {(f.processing_status === "ready" || f.processing_status === "completed") && (
@@ -413,7 +462,7 @@ const MaterialUpload = () => {
           <div className="space-y-2">
             {filteredMaterials.map((f) => (
               <div key={f.id} className="flex items-center gap-4 bg-card border border-border rounded-xl p-4">
-                {fileIcon(f.content_type)}
+                {fileIcon(f)}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{f.file_name}</div>
                   <div className="text-xs text-muted-foreground">{formatSize(f.file_size)}</div>

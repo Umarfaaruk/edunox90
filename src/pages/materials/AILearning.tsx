@@ -154,6 +154,7 @@ IMPORTANT INSTRUCTIONS:
 6. Format responses with markdown for better readability
 7. Reference specific concepts from the material when relevant
 8. When explaining topics, organize into: Summary → Key Concepts → Detailed Explanation → Examples
+9. CRITICAL: ALWAYS provide dynamic YouTube reference suggestions. At the end of your explanation, append a "📺 Recommended Videos" section with 1-2 highly relevant YouTube search links based on the topic discussed. Use the markdown format: [Watch on YouTube: <Topic>](https://www.youtube.com/results?search_query=<URL_encoded_topic>)
 
 MATERIAL CONTEXT:
 - File: ${material.file_name}

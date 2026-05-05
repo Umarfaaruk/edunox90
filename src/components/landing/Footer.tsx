@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { BackgroundPaths } from "@/components/ui/background-paths";
 
-import eduonxLogo from "@/assets/eduonx-logo.png";
+import eduonxLogo from "@/assets/eduonx-logo.jpeg";
 
 const footerLinks = {
   Platform: ["AI Tutor", "Quiz Engine", "Progress Tracker", "Study Timer"],

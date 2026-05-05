@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Home, Sparkles, Info, BookOpen } from "lucide-react";
 import { NavBar } from "@/components/ui/tubelight-navbar";
-import eduonxLogo from "@/assets/eduonx-logo.png";
+import eduonxLogo from "@/assets/eduonx-logo.jpeg";
 
 const navItems = [
   { name: 'Home', url: '/', icon: Home },

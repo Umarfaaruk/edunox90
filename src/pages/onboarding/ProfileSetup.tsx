@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 
-import eduonxLogo from "@/assets/eduonx-logo.png";
+import eduonxLogo from "@/assets/eduonx-logo.jpeg";
 
 const learnerTypes = ["Individual Learner", "School / Institution"];
 const grades = ["Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12", "College"];

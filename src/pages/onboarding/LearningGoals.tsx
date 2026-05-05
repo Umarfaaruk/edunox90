@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 
-import eduonxLogo from "@/assets/eduonx-logo.png";
+import eduonxLogo from "@/assets/eduonx-logo.jpeg";
 
 const goals = [
   { id: "homework", icon: Zap, label: "Get homework help", desc: "Solve problems faster with AI" },

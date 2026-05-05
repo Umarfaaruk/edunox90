@@ -107,9 +107,13 @@ service cloud.firestore {
     }
     
     // ── /feedback collection ──────────────────────────
+    function isFeedbackViewer() {
+      return isAdmin() || (isAuthenticated() && request.auth.token.email in ['reviewer1@eduonx.com', 'reviewer2@eduonx.com']);
+    }
+
     match /feedback/{feedbackId} {
       allow create: if isAuthenticated();
-      allow read, update, delete: if isAdmin();
+      allow read, update, delete: if isFeedbackViewer();
     }
     
     // ── /topic_progress collection ────────────────────

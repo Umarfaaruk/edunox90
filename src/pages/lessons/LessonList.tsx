@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, ChevronRight, Search, Calculator, Atom, FlaskConical, Leaf, FileText, Loader2, Sparkles, Plus } from "lucide-react";
+import { BookOpen, ChevronRight, Search, Calculator, Atom, FlaskConical, Leaf, FileText, Loader2, Sparkles, Plus, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -177,9 +177,16 @@ Material Content/Summary: ${material.extracted_text?.substring(0, 5000) || mater
     <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Lessons</h1>
-        <p className="text-muted-foreground text-sm mt-1">Browse topics and continue learning</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Lessons</h1>
+          <p className="text-muted-foreground text-sm mt-1">Browse topics and continue learning</p>
+        </div>
+        <Link to="/materials/planner">
+          <Button variant="outline" className="gap-2 border-primary/20 text-primary hover:bg-primary/10">
+            <Calendar className="h-4 w-4" /> Study Planner
+          </Button>
+        </Link>
       </div>
 
       {/* Search + Filter */}

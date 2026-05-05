@@ -208,13 +208,11 @@ const Dashboard = () => {
       </div>
 
       {/* ── Quick Actions ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { icon: MessageCircleQuestion, label: "Ask a Doubt",       to: "/doubts" },
           { icon: Gamepad2,             label: "Practice Arena",      to: "/quiz" },
           { icon: BookOpen,             label: "Continue Learning",  to: "/lessons" },
-          { icon: BrainCircuit,         label: "Flashcards",         to: "/materials/flashcards" },
-          { icon: CalendarDays,         label: "Study Planner",      to: "/materials/planner" },
           { icon: Trophy,               label: "Achievements",       to: "/achievements" },
         ].map((a) => (
           <Link
