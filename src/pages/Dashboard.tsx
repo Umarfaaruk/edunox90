@@ -11,7 +11,7 @@ const Dashboard = () => {
     useDashboardData();
 
   const displayName = profile?.full_name?.split(" ")[0] ?? "there";
-  const level = Math.floor(totalXp / 200) + 1;
+  const nextMilestone = Math.ceil(totalXp / 500) * 500 || 500;
   const currentStreak = streak?.current_streak ?? 0;
 
   // Streak calendar — Current week (Mon-Sun)
@@ -43,7 +43,7 @@ const Dashboard = () => {
                 Welcome back, {displayName} 👋
               </h1>
               <p className="text-muted-foreground mt-1 text-sm">
-                Level {level} · {totalXp.toLocaleString()} XP total
+                {totalXp.toLocaleString()} XP · Next milestone: {nextMilestone.toLocaleString()} XP
               </p>
             </>
           )}
@@ -208,10 +208,12 @@ const Dashboard = () => {
       </div>
 
       {/* ── Quick Actions ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
           { icon: MessageCircleQuestion, label: "Ask a Doubt",       to: "/doubts" },
           { icon: Gamepad2,             label: "Practice Arena",      to: "/quiz" },
+          { icon: CalendarDays,         label: "Study Planner",      to: "/planner" },
+          { icon: Zap,                  label: "Quick Tools",        to: "/tools" },
           { icon: BookOpen,             label: "Continue Learning",  to: "/lessons" },
           { icon: Trophy,               label: "Achievements",       to: "/achievements" },
         ].map((a) => (

@@ -11,6 +11,8 @@ import eduonxLogo from "@/assets/eduonx-logo.jpeg";
 
 const sidebarLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/planner", icon: Timer, label: "Study Planner" },
+  { to: "/tools", icon: Focus, label: "Quick Tools" },
   { to: "/lessons", icon: BookOpen, label: "Lessons" },
   { to: "/doubts", icon: MessageCircleQuestion, label: "Ask Doubt" },
   { to: "/quiz", icon: Gamepad2, label: "Practice Arena" },
@@ -27,8 +29,9 @@ const sidebarLinks = [
 // Mobile nav shows only the 5 most important routes
 const mobileNavLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { to: "/doubts", icon: MessageCircleQuestion, label: "Ask Doubt" },
-  { to: "/quiz", icon: Gamepad2, label: "Practice Arena" },
+  { to: "/planner", icon: Timer, label: "Planner" },
+  { to: "/doubts", icon: MessageCircleQuestion, label: "Ask" },
+  { to: "/tools", icon: Focus, label: "Tools" },
   { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },
 ];
 

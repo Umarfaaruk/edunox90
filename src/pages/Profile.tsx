@@ -85,9 +85,9 @@ const Profile = () => {
   const isLoading = profileLoading || statsLoading;
   const displayName = profile?.full_name ?? "Student";
   const gradeLevel = profile?.grade_level ?? "—";
-  const xpToNextLevel = 200;
-  const levelProgress = stats?.levelProgress ?? 0;
-  const levelPct = Math.round((levelProgress / xpToNextLevel) * 100);
+  const xpProgress = (stats?.totalXp ?? 0);
+  const nextMilestone = Math.ceil(xpProgress / 500) * 500 || 500;
+  const milestonePct = Math.round((xpProgress / nextMilestone) * 100);
 
   return (
     <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
@@ -174,23 +174,20 @@ const Profile = () => {
             <>
               <h1 className="text-xl font-bold text-foreground">{displayName}</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {gradeLevel} · {profile?.study_preference ?? "Student"}
+                {gradeLevel}{profile?.stream ? ` · ${profile.stream}` : ""}{profile?.place ? ` · ${profile.place}` : ""}
               </p>
+              {profile?.bio && (
+                <p className="text-xs text-muted-foreground mt-1 italic">{profile.bio}</p>
+              )}
             </>
           )}
 
-          {/* XP / Level / Streak row */}
+          {/* XP / Streak row */}
           <div className="flex items-center gap-4 mt-3 justify-center sm:justify-start flex-wrap">
             <div className="flex items-center gap-1">
               <Zap className="h-4 w-4 text-cta" />
               <span className="text-sm font-bold text-foreground">
                 {(stats?.totalXp ?? 0).toLocaleString()} XP
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Trophy className="h-4 w-4 text-primary" />
-              <span className="text-sm font-bold text-foreground">
-                Level {stats?.level ?? 1}
               </span>
             </div>
             <div className="flex items-center gap-1">
@@ -201,17 +198,17 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Level progress bar */}
+          {/* XP progress bar */}
           {!isLoading && (
             <div className="mt-3 max-w-xs mx-auto sm:mx-0">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Level {stats?.level ?? 1}</span>
-                <span>{levelProgress} / {xpToNextLevel} XP to Level {(stats?.level ?? 1) + 1}</span>
+                <span>{xpProgress.toLocaleString()} XP</span>
+                <span>Next milestone: {nextMilestone.toLocaleString()} XP</span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-success rounded-full transition-all duration-700"
-                  style={{ width: `${levelPct}%` }}
+                  style={{ width: `${milestonePct}%` }}
                 />
               </div>
             </div>

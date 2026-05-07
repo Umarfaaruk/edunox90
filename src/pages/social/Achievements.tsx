@@ -91,11 +91,10 @@ const Achievements = () => {
 
   const achievementDefs = DEFAULT_ACHIEVEMENTS;
   const totalXp = stats?.totalXp ?? 0;
-  const level = Math.floor(totalXp / 200) + 1;
-  const xpInLevel = totalXp % 200;
-  const xpForNext = 200;
-  const levelTitle =
-    level >= 10 ? "Legend" : level >= 7 ? "Master" : level >= 5 ? "Scholar" : level >= 3 ? "Rising Star" : "Beginner";
+  const nextMilestone = Math.ceil(totalXp / 500) * 500 || 500;
+  const milestonePct = Math.round((totalXp / nextMilestone) * 100);
+  const xpTitle =
+    totalXp >= 5000 ? "Legend" : totalXp >= 3000 ? "Master" : totalXp >= 1500 ? "Scholar" : totalXp >= 500 ? "Rising Star" : "Beginner";
 
   const progressMap: Record<string, { current: number; total: number }> = stats
     ? {
@@ -148,13 +147,13 @@ const Achievements = () => {
       {/* XP progress */}
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-foreground">Level {level} — {levelTitle}</span>
-          <span className="text-xs text-accent font-bold">{xpInLevel} / {xpForNext} XP</span>
+          <span className="text-sm font-semibold text-foreground">{xpTitle} — {totalXp.toLocaleString()} XP</span>
+          <span className="text-xs text-accent font-bold">Next: {nextMilestone.toLocaleString()} XP</span>
         </div>
         <div className="h-3 bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${(xpInLevel / xpForNext) * 100}%` }} />
+          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${milestonePct}%` }} />
         </div>
-        <div className="text-xs text-muted-foreground mt-2">{xpForNext - xpInLevel} XP to Level {level + 1} · Total: {totalXp.toLocaleString()} XP</div>
+        <div className="text-xs text-muted-foreground mt-2">{(nextMilestone - totalXp).toLocaleString()} XP to next milestone · Total: {totalXp.toLocaleString()} XP</div>
       </div>
 
       {/* Badge grid */}

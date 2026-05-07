@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { collection, getDocs, query, where, addDoc, updateDoc, doc } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { aiComplete } from "@/lib/aiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Calendar, RefreshCw, FileText, CheckCircle2, ChevronRight, CalendarDays } from "lucide-react";
+import { Loader2, Calendar, RefreshCw, FileText, CheckCircle2, CalendarDays, Sparkles, Target, Clock, BookOpen, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -21,19 +21,47 @@ interface StudyPlanDay {
 interface StudyPlan {
   id: string;
   user_id: string;
-  material_id: string;
+  plan_type: string;
   target_date: string;
   schedule: StudyPlanDay[];
   created_at: number;
+  subjects?: string[];
+  material_id?: string;
 }
 
 export default function StudyPlanner() {
   const { user } = useAuth();
-  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
   const [examDateStr, setExamDateStr] = useState("");
   const [hoursPerDay, setHoursPerDay] = useState(2);
-  
+  const [planMode, setPlanMode] = useState<"smart" | "material">("smart");
+  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+
+  // Load user preferences from onboarding
+  const { data: preferences } = useQuery({
+    queryKey: ["user-preferences", user?.uid],
+    queryFn: async () => {
+      if (!user) return null;
+      const docRef = doc(db, "user_preferences", user.uid);
+      const snap = await getDoc(docRef);
+      return snap.exists() ? snap.data() : null;
+    },
+    enabled: !!user,
+  });
+
+  // Load user profile
+  const { data: profile } = useQuery({
+    queryKey: ["profile-planner", user?.uid],
+    queryFn: async () => {
+      if (!user) return null;
+      const docRef = doc(db, "profiles", user.uid);
+      const snap = await getDoc(docRef);
+      return snap.exists() ? snap.data() : null;
+    },
+    enabled: !!user,
+  });
+
+  // Load materials for material-based planning
   const { data: materials, isLoading: materialsLoading } = useQuery({
     queryKey: ["user-materials", user?.uid],
     queryFn: async () => {
@@ -45,31 +73,29 @@ export default function StudyPlanner() {
     enabled: !!user,
   });
 
+  // Load all study plans
   const { data: plans, isLoading: plansLoading, refetch: refetchPlans } = useQuery({
-    queryKey: ["study-plans", selectedMaterial?.id],
+    queryKey: ["study-plans-all", user?.uid],
     queryFn: async () => {
-      if (!selectedMaterial?.id || !user) return [];
-      const q = query(
-        collection(db, "study_plans"), 
-        where("material_id", "==", selectedMaterial.id),
-        where("user_id", "==", user.uid)
-      );
+      if (!user) return [];
+      const q = query(collection(db, "study_plans"), where("user_id", "==", user.uid));
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as StudyPlan));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as StudyPlan)).sort((a, b) => b.created_at - a.created_at);
     },
-    enabled: !!selectedMaterial?.id && !!user,
+    enabled: !!user,
   });
 
   const activePlan = plans && plans.length > 0 ? plans[0] : null;
+  const completedDays = activePlan?.schedule?.filter((d: any) => d.completed).length ?? 0;
+  const totalDays = activePlan?.schedule?.length ?? 0;
 
   const handleGenerate = async () => {
-    if (!selectedMaterial || !user) return;
-    
+    if (!user) return;
     if (!examDateStr) {
-       toast.error("Please select an exam/target date");
-       return;
+      toast.error("Please select a target date");
+      return;
     }
-    
+
     const examDate = new Date(examDateStr);
     const today = new Date();
     const daysDiff = Math.max(1, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 3600 * 24)));
@@ -80,51 +106,67 @@ export default function StudyPlanner() {
     const maxRetries = 3;
     let lastError = null;
 
+    const subjectsList = preferences?.subjects?.join(", ") || profile?.grade_level || "General Studies";
+    const learningStyle = preferences?.learning_style || "practice";
+    const painPoints = preferences?.pain_points?.join(", ") || "";
+    const goals = preferences?.goals?.join(", ") || "exam preparation";
+    const materialContent = planMode === "material" && selectedMaterial
+      ? selectedMaterial.extracted_text?.substring(0, 6000) || selectedMaterial.summary || ""
+      : "";
+
     while (attempt < maxRetries && !schedule) {
       try {
         attempt++;
-        const prompt = `Act as an expert study planner. I need to master the following material in exactly ${daysDiff} days.
-I can dedicate ${hoursPerDay} hours per day to studying.
-Break the content down into a daily study roadmap.
-Return ONLY a valid JSON array of objects, where each object represents a day.
-Format:
+        const prompt = `Act as an expert study planner and learning strategist. Create a personalized ${daysDiff}-day study plan.
+
+STUDENT CONTEXT:
+- Grade/Level: ${profile?.grade_level || "Not specified"}
+- Subjects: ${subjectsList}
+- Learning Style: ${learningStyle}
+- Pain Points: ${painPoints}
+- Goals: ${goals}
+- Available Time: ${hoursPerDay} hours per day
+- Days Available: ${daysDiff}
+${materialContent ? `\nMATERIAL TO COVER:\n${materialContent}` : ""}
+
+REQUIREMENTS:
+- Create a day-by-day schedule with specific, actionable tasks
+- Include revision days (every 3-4 days)
+- Vary task types based on the learning style (${learningStyle})
+- Front-load difficult topics, ease into revision later
+- Each day should have 2-5 tasks
+- Estimate realistic minutes for each day (max ${hoursPerDay * 60} mins)
+
+Return ONLY a valid JSON array of objects:
 [
   {
     "day": 1,
-    "title": "Introduction & Basics",
-    "tasks": ["Read chapter 1", "Define core terms"],
-    "estimated_minutes": 120,
+    "title": "Foundation & Core Concepts",
+    "tasks": ["Read Chapter 1 thoroughly", "Create mind map of key terms", "Practice 10 basic problems"],
+    "estimated_minutes": ${hoursPerDay * 60},
     "completed": false
   }
 ]
-Limit to max 14 days (if more than 14 days, group them into weekly or bi-weekly milestones but keep the array length manageable).
-
-Content:
-${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summary}`;
+Limit to max 14 entries. If more than 14 days, group into weekly milestones.`;
 
         const res = await aiComplete({
           messages: [{ role: "user", content: prompt }],
           temperature: 0.7,
-          maxTokens: 2500,
+          maxTokens: 3000,
         });
 
         let jsonString = res;
         if (jsonString.includes("```json")) {
           jsonString = jsonString.split("```json")[1].split("```")[0];
         } else if (jsonString.includes("```")) {
-           const parts = jsonString.split("```");
-           if (parts.length >= 3) {
-              jsonString = parts[1];
-           }
+          const parts = jsonString.split("```");
+          if (parts.length >= 3) jsonString = parts[1];
         }
 
         const firstIdx = jsonString.indexOf('[');
         const lastIdx = jsonString.lastIndexOf(']');
-        
-        if (firstIdx === -1 || lastIdx === -1) {
-          throw new Error("Failed to locate JSON array in AI output");
-        }
-        
+        if (firstIdx === -1 || lastIdx === -1) throw new Error("Failed to locate JSON array in AI output");
+
         jsonString = jsonString.substring(firstIdx, lastIdx + 1);
         schedule = JSON.parse(jsonString);
       } catch (err) {
@@ -138,159 +180,248 @@ ${selectedMaterial.extracted_text?.substring(0, 8000) || selectedMaterial.summar
 
       await addDoc(collection(db, "study_plans"), {
         user_id: user.uid,
-        material_id: selectedMaterial.id,
+        plan_type: planMode,
+        material_id: selectedMaterial?.id || null,
         target_date: examDate.toISOString(),
+        subjects: preferences?.subjects || [],
         schedule,
         created_at: Date.now()
       });
-      
-      toast.success("Study Roadmap generated!");
+
+      toast.success("🎯 Smart Study Plan generated!");
       refetchPlans();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to generate plan.");
+      toast.error("Failed to generate plan. Please try again.");
     } finally {
       setGenerating(false);
     }
   };
 
-
-  
   const toggleDayComplete = async (dayIndex: number) => {
-     if (!activePlan) return;
-     try {
-       const newSchedule = [...activePlan.schedule];
-       newSchedule[dayIndex].completed = !newSchedule[dayIndex].completed;
-       await updateDoc(doc(db, "study_plans", activePlan.id), {
-         schedule: newSchedule
-       });
-       refetchPlans();
-     } catch (e) {
-       toast.error("Failed to update progress");
-     }
+    if (!activePlan) return;
+    try {
+      const newSchedule = [...activePlan.schedule];
+      newSchedule[dayIndex].completed = !newSchedule[dayIndex].completed;
+      await updateDoc(doc(db, "study_plans", activePlan.id), { schedule: newSchedule });
+      refetchPlans();
+    } catch (e) {
+      toast.error("Failed to update progress");
+    }
   };
 
-  if (materialsLoading) {
+  if (materialsLoading || plansLoading) {
     return <div className="p-8 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   }
 
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
-          <CalendarDays className="h-5 w-5 text-success" />
+        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <CalendarDays className="h-5 w-5 text-primary" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Study Planner</h1>
-          <p className="text-muted-foreground text-sm">AI-generated daily roadmaps to ace your exams</p>
+          <p className="text-muted-foreground text-sm">AI-powered personalized study roadmaps</p>
         </div>
       </div>
 
-      {!selectedMaterial ? (
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-          {materials?.map((m: any) => (
-            <div key={m.id} className="bg-card border border-border rounded-xl p-5 hover:border-success/40 cursor-pointer transition-colors" onClick={() => setSelectedMaterial(m)}>
-              <div className="flex items-start gap-3">
-                <FileText className="h-5 w-5 text-success mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-foreground truncate">{m.file_name}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Select to view or create plan</p>
-                </div>
+      {/* Active Plan Display */}
+      {activePlan ? (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {/* Plan summary card */}
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <span className="font-bold text-foreground">Active Study Plan</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  Target: {new Date(activePlan.target_date).toLocaleDateString()}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => { setPlanMode("smart"); /* allow new plan creation below */ }}>
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" /> New Plan
+                </Button>
               </div>
             </div>
-          ))}
-          {materials?.length === 0 && (
-             <div className="col-span-full text-center py-12 text-muted-foreground bg-muted/50 rounded-xl border border-dashed border-border">
-                <FileText className="h-8 w-8 mx-auto mb-3 opacity-40" />
-                <p className="text-sm mb-4">No materials uploaded yet.</p>
-                <Link to="/materials">
-                  <Button variant="outline" size="sm">Upload Material</Button>
-                </Link>
-             </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-6 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">Plan for: {selectedMaterial.file_name}</h2>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedMaterial(null)}>
-              Back to Materials
-            </Button>
+
+            {/* Progress bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Progress</span>
+                <span className="font-semibold text-primary">{completedDays}/{totalDays} days completed</span>
+              </div>
+              <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full transition-all duration-500"
+                  style={{ width: `${totalDays > 0 ? (completedDays / totalDays) * 100 : 0}%` }} />
+              </div>
+            </div>
           </div>
 
-          {plansLoading || generating ? (
-            <div className="bg-card border border-border rounded-xl p-12 flex flex-col items-center justify-center gap-4 text-center">
-              <RefreshCw className="h-8 w-8 text-success animate-spin" />
-              <p className="text-muted-foreground text-sm">{generating ? "AI is crunching the timeline..." : "Loading plan..."}</p>
-            </div>
-          ) : !activePlan ? (
-            <div className="bg-card border border-border rounded-xl p-8 space-y-6">
-              <div className="text-center">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto opacity-50 mb-4" />
-                <h3 className="font-bold text-foreground">No Plan Generated</h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1 mb-6">
-                  Set your target date, and AI will break the material down into a daily schedule.
-                </p>
-              </div>
-              <div className="max-w-xs mx-auto space-y-4">
-                 <div className="space-y-2 text-left">
-                   <label className="text-sm font-medium">Target / Exam Date</label>
-                   <Input type="date" value={examDateStr} onChange={e => setExamDateStr(e.target.value)} min={new Date().toISOString().split('T')[0]} />
-                 </div>
-                 <div className="space-y-2 text-left">
-                   <label className="text-sm font-medium">Study Hours Per Day</label>
-                   <Input type="number" min="1" max="12" value={hoursPerDay} onChange={e => setHoursPerDay(Number(e.target.value))} />
-                 </div>
-                 <Button onClick={handleGenerate} disabled={generating || !examDateStr} className="w-full bg-success text-success-foreground hover:bg-success/90">
-                   Generate Roadmap
-                 </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-               <div className="flex items-center justify-between bg-success/10 border border-success/20 rounded-lg p-4">
-                  <div className="text-sm">
-                    <span className="font-semibold text-success">Target Date:</span> {new Date(activePlan.target_date).toLocaleDateString()}
+          {/* Day-wise timeline */}
+          <div className="relative border-l-2 border-border ml-3 space-y-6 py-4">
+            {activePlan.schedule.map((dayObj: any, index: number) => (
+              <div key={index} className="relative pl-6">
+                {/* Timeline node */}
+                <button
+                  onClick={() => toggleDayComplete(index)}
+                  className={`absolute -left-[11px] top-1 h-5 w-5 rounded-full border-2 bg-background flex items-center justify-center transition-all ${
+                    dayObj.completed ? 'border-primary bg-primary' : 'border-muted-foreground hover:border-primary'
+                  }`}
+                >
+                  {dayObj.completed && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                </button>
+
+                <div className={`bg-card border rounded-xl p-4 transition-all ${
+                  dayObj.completed ? 'border-primary/20 opacity-70' : 'border-border shadow-sm hover:shadow-md'
+                }`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                      dayObj.completed ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                    }`}>
+                      Day {dayObj.day || index + 1}
+                    </span>
+                    <h4 className={`font-semibold text-sm ${dayObj.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                      {dayObj.title}
+                    </h4>
+                    <span className="ml-auto text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> ~{dayObj.estimated_minutes || 60} min
+                    </span>
                   </div>
-                  <div className="text-sm font-medium">
-                     Progress: {activePlan.schedule.filter((d:any)=>d.completed).length} / {activePlan.schedule.length} Days
+                  <ul className={`text-sm space-y-1.5 pl-5 list-disc ${dayObj.completed ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
+                    {dayObj.tasks?.map((task: string, tIdx: number) => (
+                      <li key={tIdx}>{task}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        // ── No active plan — Plan creation UI ──────────────────
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {/* Mode selector */}
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => { setPlanMode("smart"); setSelectedMaterial(null); }}
+              className={`p-5 rounded-xl border transition-all text-left ${
+                planMode === "smart" ? "bg-primary/5 border-primary ring-1 ring-primary/30" : "bg-card border-border hover:border-primary/40"
+              }`}
+            >
+              <Sparkles className={`h-6 w-6 mb-2 ${planMode === "smart" ? "text-primary" : "text-muted-foreground"}`} />
+              <div className="text-sm font-bold text-foreground">Smart Plan</div>
+              <div className="text-xs text-muted-foreground mt-0.5">AI generates a plan from your profile & subjects</div>
+            </button>
+            <button onClick={() => setPlanMode("material")}
+              className={`p-5 rounded-xl border transition-all text-left ${
+                planMode === "material" ? "bg-primary/5 border-primary ring-1 ring-primary/30" : "bg-card border-border hover:border-primary/40"
+              }`}
+            >
+              <FileText className={`h-6 w-6 mb-2 ${planMode === "material" ? "text-primary" : "text-muted-foreground"}`} />
+              <div className="text-sm font-bold text-foreground">Material-Based</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Build a plan around uploaded study materials</div>
+            </button>
+          </div>
+
+          {/* Personalization summary from onboarding */}
+          {preferences && planMode === "smart" && (
+            <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Target className="h-4 w-4 text-primary" /> Your Learning Profile
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {preferences.subjects?.length > 0 && (
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Subjects</div>
+                    <div className="text-xs text-foreground">{preferences.subjects.slice(0, 3).join(", ")}</div>
                   </div>
-               </div>
-               
-               <div className="relative border-l-2 border-border ml-3 space-y-8 py-4">
-                 {activePlan.schedule.map((dayObj: any, index: number) => (
-                   <div key={index} className="relative pl-6">
-                     {/* Timeline node */}
-                     <button 
-                       onClick={() => toggleDayComplete(index)}
-                       className={`absolute -left-[11px] top-1 h-5 w-5 rounded-full border-2 bg-background flex items-center justify-center transition-colors ${dayObj.completed ? 'border-success' : 'border-muted-foreground'}`}
-                     >
-                       {dayObj.completed && <div className="h-2.5 w-2.5 rounded-full bg-success" />}
-                     </button>
-                     
-                     <div className={`bg-card border rounded-xl p-4 transition-all ${dayObj.completed ? 'border-success/30 opacity-70' : 'border-border shadow-sm'}`}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${dayObj.completed ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'}`}>
-                             Day {dayObj.day || index + 1}
-                          </span>
-                          <h4 className={`font-semibold text-sm ${dayObj.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                            {dayObj.title}
-                          </h4>
-                          <span className="ml-auto text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                            ~{dayObj.estimated_minutes || 60} min
-                          </span>
-                        </div>
-                        <ul className={`text-sm space-y-1.5 pl-5 list-disc ${dayObj.completed ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
-                          {dayObj.tasks?.map((task: string, tIdx: number) => (
-                             <li key={tIdx}>{task}</li>
-                          ))}
-                        </ul>
-                     </div>
-                   </div>
-                 ))}
-               </div>
+                )}
+                {preferences.learning_style && (
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Style</div>
+                    <div className="text-xs text-foreground capitalize">{preferences.learning_style}</div>
+                  </div>
+                )}
+                {preferences.daily_study_time && (
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Daily Time</div>
+                    <div className="text-xs text-foreground">{preferences.daily_study_time}</div>
+                  </div>
+                )}
+                {preferences.goals?.length > 0 && (
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Goals</div>
+                    <div className="text-xs text-foreground capitalize">{preferences.goals.slice(0, 2).join(", ")}</div>
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Plan will be personalized based on your onboarding responses. <Link to="/onboarding" className="text-primary hover:underline">Update preferences →</Link>
+              </p>
             </div>
           )}
+
+          {/* Material selection for material-based plans */}
+          {planMode === "material" && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-foreground">Select a material</h3>
+              {materials && materials.length > 0 ? (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {materials.map((m: any) => (
+                    <button key={m.id} onClick={() => setSelectedMaterial(m)}
+                      className={`p-4 rounded-xl border transition-all text-left ${
+                        selectedMaterial?.id === m.id ? "bg-primary/5 border-primary" : "bg-card border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <FileText className="h-4 w-4 text-primary mb-1" />
+                      <div className="text-sm font-medium text-foreground truncate">{m.file_name}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground bg-muted/50 rounded-xl border border-dashed border-border">
+                  <FileText className="h-8 w-8 mx-auto mb-3 opacity-40" />
+                  <p className="text-sm mb-4">No materials uploaded yet.</p>
+                  <Link to="/materials"><Button variant="outline" size="sm">Upload Material</Button></Link>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Plan configuration */}
+          <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+            <div className="text-center">
+              <Calendar className="h-10 w-10 text-muted-foreground mx-auto opacity-50 mb-3" />
+              <h3 className="font-bold text-foreground">Configure Your Plan</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1">
+                Set your target date and daily study hours — AI will create your personalized roadmap.
+              </p>
+            </div>
+            <div className="max-w-sm mx-auto space-y-4">
+              <div className="space-y-2 text-left">
+                <label className="text-sm font-medium">Target / Exam Date</label>
+                <Input type="date" value={examDateStr} onChange={e => setExamDateStr(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]} />
+              </div>
+              <div className="space-y-2 text-left">
+                <label className="text-sm font-medium">Study Hours Per Day</label>
+                <Input type="number" min="1" max="12" value={hoursPerDay}
+                  onChange={e => setHoursPerDay(Number(e.target.value))} />
+              </div>
+              <Button onClick={handleGenerate}
+                disabled={generating || !examDateStr || (planMode === "material" && !selectedMaterial)}
+                className="w-full gap-2"
+              >
+                {generating ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Generating your plan...</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" /> Generate Smart Roadmap</>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

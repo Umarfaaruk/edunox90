@@ -15,8 +15,7 @@ import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
-import ProfileSetup from "./pages/onboarding/ProfileSetup";
-import LearningGoals from "./pages/onboarding/LearningGoals";
+import OnboardingFlow from "./pages/onboarding/OnboardingFlow";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import DoubtInput from "./pages/doubts/DoubtInput";
@@ -33,6 +32,7 @@ import AILearning from "./pages/materials/AILearning";
 import AITutor from "./pages/materials/AITutor";
 import Flashcards from "./pages/materials/Flashcards";
 import StudyPlanner from "./pages/materials/StudyPlanner";
+import QuickTools from "./pages/tools/QuickTools";
 import ProgressDashboard from "./pages/progress/ProgressDashboard";
 import TimerPage from "./pages/timer/TimerPage";
 import Leaderboard from "./pages/social/Leaderboard";
@@ -72,15 +72,14 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
 
-              {/* Protected: Onboarding */}
+              {/* Protected: Onboarding (new multi-stage flow) */}
               <Route
-                path="/onboarding/profile"
-                element={<ProtectedRoute><ProfileSetup /></ProtectedRoute>}
+                path="/onboarding"
+                element={<ProtectedRoute><OnboardingFlow /></ProtectedRoute>}
               />
-              <Route
-                path="/onboarding/goals"
-                element={<ProtectedRoute><LearningGoals /></ProtectedRoute>}
-              />
+              {/* Legacy onboarding routes redirect to new flow */}
+              <Route path="/onboarding/profile" element={<Navigate to="/onboarding" replace />} />
+              <Route path="/onboarding/goals" element={<Navigate to="/onboarding" replace />} />
 
               {/* Admin Panel — only for admin & super_admin */}
               <Route
@@ -106,7 +105,13 @@ const App = () => (
                 <Route path="/materials/tutor" element={<ErrorBoundary><AITutor /></ErrorBoundary>} />
                 <Route path="/materials/flashcards" element={<ErrorBoundary><Flashcards /></ErrorBoundary>} />
 
+                {/* Study Planner — standalone and materials-based */}
+                <Route path="/planner" element={<ErrorBoundary><StudyPlanner /></ErrorBoundary>} />
                 <Route path="/materials/planner" element={<ErrorBoundary><StudyPlanner /></ErrorBoundary>} />
+
+                {/* Quick Tools */}
+                <Route path="/tools" element={<ErrorBoundary><QuickTools /></ErrorBoundary>} />
+
                 <Route path="/progress" element={<ErrorBoundary><ProgressDashboard /></ErrorBoundary>} />
                 <Route path="/timer" element={<ErrorBoundary><TimerPage /></ErrorBoundary>} />
                 <Route path="/leaderboard" element={<ErrorBoundary><Leaderboard /></ErrorBoundary>} />

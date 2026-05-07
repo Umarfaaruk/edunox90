@@ -75,8 +75,7 @@ const Leaderboard = () => {
   const myName = myProfile?.full_name || user?.displayName || "You";
   const myInitials = myName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
   const xp = myXp ?? 0;
-  const level = Math.floor(xp / 200) + 1;
-  const xpInLevel = xp % 200;
+  const nextMilestone = Math.ceil(xp / 500) * 500 || 500;
 
   // If user not in global list, add them
   const displayUsers = tab === "global"
@@ -131,7 +130,7 @@ const Leaderboard = () => {
             <div className="grid grid-cols-[60px_1fr_1fr_100px] gap-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 pb-2 border-b border-border">
               <span>Rank</span>
               <span>Student</span>
-              <span>Level</span>
+              <span>Streak</span>
               <span className="text-right">XP Points</span>
             </div>
 
@@ -161,7 +160,7 @@ const Leaderboard = () => {
                         {u.isYou && <span className="text-[10px] text-muted-foreground ml-1">(You)</span>}
                       </div>
                     </div>
-                    <span className="text-xs text-muted-foreground">Level {Math.floor(u.xp / 200) + 1}</span>
+                    <span className="text-xs text-muted-foreground">{u.xp.toLocaleString()} XP</span>
                     <span className="text-sm font-bold text-accent text-right">{u.xp.toLocaleString()} XP</span>
                   </div>
                 ))
@@ -175,12 +174,12 @@ const Leaderboard = () => {
           <div className="bg-[hsl(var(--navy))] text-white rounded-xl p-5 space-y-3">
             <div className="flex items-center justify-between">
               <Zap className="h-5 w-5 text-[hsl(var(--highlight))]" />
-              <span className="text-[10px] font-bold text-[hsl(var(--highlight))] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full">Level {level}</span>
+              <span className="text-[10px] font-bold text-[hsl(var(--highlight))] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full">{xp.toLocaleString()} XP</span>
             </div>
-            <h3 className="text-lg font-bold">XP System</h3>
-            <p className="text-xs opacity-80">You're {200 - xpInLevel} XP away from level {level + 1}!</p>
+            <h3 className="text-lg font-bold">XP Progress</h3>
+            <p className="text-xs opacity-80">You're {(nextMilestone - xp).toLocaleString()} XP away from {nextMilestone.toLocaleString()} XP!</p>
             <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-accent rounded-full" style={{ width: `${(xpInLevel / 200) * 100}%` }} />
+              <div className="h-full bg-accent rounded-full" style={{ width: `${(xp / nextMilestone) * 100}%` }} />
             </div>
           </div>
 
@@ -207,8 +206,8 @@ const Leaderboard = () => {
                 <span className="font-bold text-foreground">#{myRank}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Level</span>
-                <span className="font-bold text-foreground">{level}</span>
+                <span className="text-muted-foreground">Next Milestone</span>
+                <span className="font-bold text-foreground">{nextMilestone.toLocaleString()} XP</span>
               </div>
             </div>
           </div>

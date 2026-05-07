@@ -37,31 +37,66 @@ const Feedback = () => {
     },
   });
 
+  const [submitted, setSubmitted] = useState(false);
+
   const onSubmit = async (data: FeedbackFormValues) => {
     setIsSubmitting(true);
-    try {
-      await addDoc(collection(db, "feedback"), {
-        userId: user?.uid || "anonymous",
-        rating: data.rating,
-        comment: data.comment,
-        name: data.name || "Anonymous",
-        email: data.email || "",
-        createdAt: serverTimestamp(),
-      });
-      toast.success("Thank you for your feedback!");
-      form.reset({
-        rating: 0,
-        comment: "",
-        name: user?.displayName || "",
-        email: user?.email || "",
-      });
-    } catch (error) {
-      console.error("Error submitting feedback:", error);
-      toast.error("Failed to submit feedback. Please try again later.");
-    } finally {
-      setIsSubmitting(false);
+    let retries = 0;
+    const maxRetries = 2;
+
+    while (retries <= maxRetries) {
+      try {
+        await addDoc(collection(db, "feedback"), {
+          userId: user?.uid || "anonymous",
+          rating: data.rating,
+          comment: data.comment,
+          name: data.name || "Anonymous",
+          email: data.email || "",
+          createdAt: serverTimestamp(),
+          platform: "web",
+          version: "2.0",
+        });
+        toast.success("Thank you for your feedback!");
+        setSubmitted(true);
+        form.reset({
+          rating: 0,
+          comment: "",
+          name: user?.displayName || "",
+          email: user?.email || "",
+        });
+        return;
+      } catch (error: any) {
+        retries++;
+        console.error(`[Feedback] Submission attempt ${retries} failed:`, error);
+        if (retries > maxRetries) {
+          const errMsg = error?.code === "permission-denied"
+            ? "Permission denied. Please make sure you're signed in."
+            : error?.code === "unavailable"
+            ? "Service temporarily unavailable. Please try again in a moment."
+            : "Failed to submit feedback. Please try again later.";
+          toast.error(errMsg);
+        } else {
+          await new Promise(r => setTimeout(r, 1000 * retries));
+        }
+      }
     }
+    setIsSubmitting(false);
   };
+
+  if (submitted) {
+    return (
+      <div className="container max-w-2xl py-16 px-4 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="inline-flex h-16 w-16 rounded-full bg-success/10 items-center justify-center mb-4">
+          <MessageSquare className="h-8 w-8 text-success" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Thank You! 🎉</h2>
+        <p className="text-muted-foreground mb-6">Your feedback has been submitted successfully. We appreciate your input!</p>
+        <Button onClick={() => setSubmitted(false)} variant="outline" className="gap-2">
+          <Send className="h-4 w-4" /> Submit More Feedback
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-2xl py-8 px-4 md:py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">

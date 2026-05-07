@@ -39,7 +39,10 @@ const Settings = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [university, setUniversity] = useState("");
-  const [major, setMajor] = useState("");
+  const [stream, setStream] = useState("");
+  const [age, setAge] = useState("");
+  const [bio, setBio] = useState("");
+  const [place, setPlace] = useState("");
 
   // Initialize form fields from profile data
   useEffect(() => {
@@ -47,7 +50,10 @@ const Settings = () => {
       setName(profile.full_name || user?.displayName || "");
       setEmail(user?.email || "");
       setUniversity(profile.university || "");
-      setMajor(profile.major || "");
+      setStream(profile.stream || "");
+      setAge(profile.age || "");
+      setBio(profile.bio || "");
+      setPlace(profile.place || "");
     } else if (user) {
       setName(user.displayName || "");
       setEmail(user.email || "");
@@ -67,7 +73,10 @@ const Settings = () => {
       await updateDoc(docRef, {
         full_name: name,
         university: university,
-        major: major,
+        stream: stream,
+        age: age,
+        bio: bio,
+        place: place,
         // email usually handled by Firebase Auth, but we can store it too
         email: email,
       });
@@ -200,8 +209,22 @@ const Settings = () => {
                     <Input value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="Enter university" className="h-10" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Major</label>
-                    <Input value={major} onChange={(e) => setMajor(e.target.value)} placeholder="Enter major" className="h-10" />
+                    <label className="text-xs font-medium text-muted-foreground">Stream</label>
+                    <Input value={stream} onChange={(e) => setStream(e.target.value)} placeholder="e.g. Science, Commerce, Arts" className="h-10" />
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Age</label>
+                    <Input type="number" min="10" max="99" value={age} onChange={(e) => setAge(e.target.value)} placeholder="Your age" className="h-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Place</label>
+                    <Input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="City, Country" className="h-10" />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-1">
+                    <label className="text-xs font-medium text-muted-foreground">Bio</label>
+                    <Input value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell us about yourself" className="h-10" />
                   </div>
                 </div>
               </div>

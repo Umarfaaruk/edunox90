@@ -18,13 +18,9 @@ service cloud.firestore {
     
     // ── /users collection ─────────────────────────────
     match /users/{userId} {
-      // Users can read their own profile, admins can read all
       allow read: if isUser(userId) || isAdmin();
-      
-      // Users can write their own profile
       allow write: if isUser(userId);
       
-      // Subcollections
       match /profile_data/{document=**} {
         allow read, write: if isUser(userId);
       }
@@ -93,7 +89,6 @@ service cloud.firestore {
     }
     
     // ── /doubt_messages collection ──────────────────
-    // Messages stored per doubt session (user Q + AI answer)
     match /doubt_messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
@@ -107,13 +102,12 @@ service cloud.firestore {
     }
     
     // ── /feedback collection ──────────────────────────
-    function isFeedbackViewer() {
-      return isAdmin() || (isAuthenticated() && request.auth.token.email in ['reviewer1@eduonx.com', 'reviewer2@eduonx.com']);
-    }
-
     match /feedback/{feedbackId} {
-      allow create: if true;
-      allow read, update, delete: if isFeedbackViewer();
+      // Any authenticated user can submit feedback
+      allow create: if isAuthenticated();
+      // Users can read their own feedback, admins can read all
+      allow read: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
     
     // ── /topic_progress collection ────────────────────
@@ -123,14 +117,19 @@ service cloud.firestore {
     }
     
     // ── /profiles collection ──────────────────────────
-    // User profile data (XP, study hours, etc.)
     match /profiles/{userId} {
       allow read: if isAuthenticated();
       allow write: if isUser(userId);
     }
     
+    // ── /user_preferences collection ──────────────────
+    // Stores onboarding responses, learning style, AI preferences, etc.
+    match /user_preferences/{userId} {
+      allow read: if isUser(userId);
+      allow write: if isUser(userId);
+    }
+    
     // ── /materials collection ─────────────────────────
-    // Uploaded study materials (PDFs, docs, etc.)
     match /materials/{materialId} {
       allow read: if isUser(resource.data.user_id);
       allow create: if isUser(request.resource.data.user_id);
@@ -139,7 +138,6 @@ service cloud.firestore {
     }
     
     // ── /analytics_snapshots collection ────────────────
-    // Daily aggregated analytics data
     match /analytics_snapshots/{snapshotId} {
       allow read: if isUser(resource.data.user_id);
       allow write: if isUser(request.resource.data.user_id);
@@ -163,6 +161,13 @@ service cloud.firestore {
       allow read: if isUser(resource.data.user_id);
       allow create: if isUser(request.resource.data.user_id);
       allow update, delete: if isUser(resource.data.user_id);
+    }
+
+    // ── /parent_guidance collection ───────────────────
+    match /parent_guidance/{noteId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
     
     // ── Deny all by default ───────────────────────────
