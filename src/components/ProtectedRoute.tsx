@@ -9,7 +9,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
 
   // Check if user has completed onboarding
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile, isLoading: profileLoading, isError } = useQuery({
     queryKey: ["profile-onboarding-check", user?.uid],
     queryFn: async () => {
       if (!user) return null;
@@ -18,6 +18,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     },
     enabled: !!user,
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes to avoid repeated checks
+    retry: 1, // Only retry once to avoid blocking the user
   });
 
   if (loading || (user && profileLoading)) {
@@ -33,6 +34,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // If Firestore read failed (permissions error, offline, etc.)
+  // let the user through rather than blocking them entirely.
+  // The onboarding page itself will handle re-checking.
+  if (isError) {
+    return <>{children}</>;
   }
 
   // Redirect to onboarding if profile doesn't exist or onboarding not completed

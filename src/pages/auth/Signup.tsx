@@ -5,8 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Mail, Lock, User, ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { getReadableFirebaseAuthError } from "@/lib/firebaseAuthErrors";
 
@@ -43,33 +42,17 @@ const Signup = () => {
       return;
     }
     toast.success("Account created successfully!");
-    navigate("/dashboard");
+    navigate("/onboarding");
   };
 
   const handleGoogleSignup = async () => {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, provider);
+      await signInWithPopup(auth, provider);
       
-      // Ensure profile exists
-      const userRef = doc(db, "profiles", result.user.uid);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          email: result.user.email,
-          full_name: result.user.displayName || "User",
-          created_at: new Date(),
-          total_xp: 0,
-          current_streak: 0,
-          longest_streak: 0,
-        });
-        await setDoc(doc(db, "user_preferences", result.user.uid), {
-          theme: "dark",
-          notifications_enabled: true
-        });
-      }
-      
+      // ProtectedRoute will check if onboarding is completed
+      // and redirect new users to /onboarding automatically
       toast.success("Signed in with Google!");
       navigate("/dashboard");
     } catch (error: any) {
