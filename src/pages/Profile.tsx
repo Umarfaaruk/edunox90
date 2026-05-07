@@ -1,4 +1,4 @@
-import { User, Zap, BookOpen, Clock, Flame, Settings, ArrowRight, Camera } from "lucide-react";
+import { User, Zap, Trophy, BookOpen, Clock, Flame, Settings, ArrowRight, Camera } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
