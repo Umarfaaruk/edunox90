@@ -7,7 +7,7 @@ import {
 import { useDeepFocus } from "@/hooks/useDeepFocus";
 import GlobalTimer from "@/components/GlobalTimer";
 
-import eduonxLogo from "@/assets/eduonx-logo.jpeg";
+import eduonxLogo from "@/assets/eduonx-logo.png";
 
 const sidebarLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -48,7 +48,7 @@ const AppLayout = () => {
         <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card fixed inset-y-0 left-0 z-30">
           <div className="px-6 py-6 border-b border-border flex-shrink-0">
             <Link to="/" className="flex items-center shrink-0 w-full justify-start">
-              <img src={eduonxLogo} alt="EduOnx Logo" className="h-[40px] w-auto max-w-[200px] object-contain object-left mix-blend-screen invert grayscale brightness-200" />
+              <img src={eduonxLogo} alt="EduOnx Logo" className="h-[40px] w-auto max-w-[200px] object-contain object-left" />
             </Link>
           </div>
 

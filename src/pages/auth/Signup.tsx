@@ -10,7 +10,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { getReadableFirebaseAuthError } from "@/lib/firebaseAuthErrors";
 
-import eduonxLogo from "@/assets/eduonx-logo.jpeg";
+import eduonxLogo from "@/assets/eduonx-logo.png";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -85,7 +85,7 @@ const Signup = () => {
 
         <div className="relative z-10">
           <Link to="/" className="flex items-center shrink-0 w-full justify-center lg:justify-start">
-            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[80px] w-auto max-w-[300px] object-contain invert grayscale brightness-200 mix-blend-screen opacity-90" />
+            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[80px] w-auto max-w-[300px] object-contain" />
           </Link>
         </div>
 
@@ -121,7 +121,7 @@ const Signup = () => {
         <div className="w-full max-w-md space-y-8">
 
           <div className="lg:hidden flex items-center justify-center mb-8 shrink-0 w-full">
-            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[60px] w-auto max-w-[200px] object-contain invert grayscale brightness-200 mix-blend-screen" />
+            <img src={eduonxLogo} alt="EduOnx Logo" className="h-[60px] w-auto max-w-[200px] object-contain" />
           </div>
 
           <div>

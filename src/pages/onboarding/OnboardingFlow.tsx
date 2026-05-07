@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 
-import eduonxLogo from "@/assets/eduonx-logo.jpeg";
+import eduonxLogo from "@/assets/eduonx-logo.png";
 
 // ── Stage definitions ────────────────────────────────────────────
 const TOTAL_STAGES = 8;
@@ -205,7 +205,7 @@ const OnboardingFlow = () => {
       {/* Header */}
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center shrink-0 w-full justify-center lg:justify-start">
-          <img src={eduonxLogo} alt="EduOnx Logo" className="h-[50px] w-auto max-w-full lg:max-w-[250px] object-contain invert grayscale brightness-200 mix-blend-screen opacity-90" />
+          <img src={eduonxLogo} alt="EduOnx Logo" className="h-[50px] w-auto max-w-full lg:max-w-[250px] object-contain" />
         </div>
       </div>
 
