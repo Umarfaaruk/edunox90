@@ -522,6 +522,28 @@ const AITutor = () => {
                     Upload your materials or type a specific question below. You can ask me to explain concepts, summarize text, or solve complex problems based on your provided data.
                   </p>
                 </div>
+
+                {/* Subject starter prompts */}
+                <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
+                  {[
+                    { icon: Calculator, label: "Math", prompt: "Explain how to solve quadratic equations step by step" },
+                    { icon: Atom, label: "Physics", prompt: "Explain Newton's laws of motion with real-world examples" },
+                    { icon: Code2, label: "Coding", prompt: "Explain the concept of recursion with a simple example" },
+                    { icon: Globe, label: "General", prompt: "Help me create a study plan for my upcoming exams" },
+                  ].map((s) => (
+                    <button
+                      key={s.label}
+                      onClick={() => handleStarterClick(s.prompt)}
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left group"
+                    >
+                      <s.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <div>
+                        <div className="text-xs font-semibold text-foreground">{s.label}</div>
+                        <div className="text-[10px] text-muted-foreground truncate max-w-[140px]">{s.prompt}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </>
             )}
           </div>

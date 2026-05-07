@@ -1,11 +1,26 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  // Check if user has completed onboarding
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["profile-onboarding-check", user?.uid],
+    queryFn: async () => {
+      if (!user) return null;
+      const snap = await getDoc(doc(db, "profiles", user.uid));
+      return snap.exists() ? snap.data() : null;
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10, // Cache for 10 minutes to avoid repeated checks
+  });
+
+  if (loading || (user && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="space-y-3 text-center">
@@ -18,6 +33,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Redirect to onboarding if profile doesn't exist or onboarding not completed
+  // (skip if already on the onboarding page to avoid redirect loop)
+  const isOnboardingPage = location.pathname.startsWith("/onboarding");
+  if (!isOnboardingPage && (!profile || !profile.onboarding_completed)) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;

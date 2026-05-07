@@ -199,7 +199,7 @@ Material Content/Summary: ${material.extracted_text?.substring(0, 5000) || mater
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Lessons</h1>
           <p className="text-muted-foreground text-sm mt-1">Browse topics and continue learning</p>
         </div>
-        <Link to="/materials/planner">
+        <Link to="/planner">
           <Button variant="outline" className="gap-2 border-primary/20 text-primary hover:bg-primary/10">
             <Calendar className="h-4 w-4" /> Study Planner
           </Button>
