@@ -15,10 +15,20 @@ service cloud.firestore {
       return isAuthenticated() && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_admin == true;
     }
+
+    // Helper: Check if the authenticated user owns this resource
+    // Works for both get (single doc) and list (query) operations
+    function isOwner() {
+      return isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    function isNewOwner() {
+      return isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+    }
     
     // ── /users collection ─────────────────────────────
     match /users/{userId} {
-      allow read: if isUser(userId) || isAdmin();
+      allow read: if isUser(userId);
       allow write: if isUser(userId);
       
       match /profile_data/{document=**} {
@@ -26,18 +36,33 @@ service cloud.firestore {
       }
     }
     
+    // ── /profiles collection ──────────────────────────
+    // Readable by any authenticated user (for leaderboards, social)
+    // Writable only by the profile owner
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isUser(userId);
+    }
+    
+    // ── /user_preferences collection ──────────────────
+    match /user_preferences/{userId} {
+      allow read: if isUser(userId);
+      allow write: if isUser(userId);
+    }
+    
     // ── /study_sessions collection ────────────────────
     match /study_sessions/{sessionId} {
-      allow read: if isUser(resource.data.user_id);
-      allow create, update: if isUser(request.resource.data.user_id);
-      allow delete: if isUser(resource.data.user_id) || isAdmin();
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update: if isOwner();
+      allow delete: if isOwner();
     }
     
     // ── /xp_logs collection ───────────────────────────
     match /xp_logs/{logId} {
-      allow read: if isUser(resource.data.user_id);
-      allow create: if isUser(request.resource.data.user_id);
-      allow update, delete: if isUser(resource.data.user_id) || isAdmin();
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update, delete: if isOwner();
     }
     
     // ── /user_streaks collection ──────────────────────
@@ -48,131 +73,115 @@ service cloud.firestore {
     
     // ── /lesson_progress collection ───────────────────
     match /lesson_progress/{progressId} {
-      allow read, write: if isUser(resource.data.user_id) || 
-                            isUser(request.resource.data.user_id);
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
     }
     
     // ── /quiz_attempts collection ─────────────────────
     match /quiz_attempts/{attemptId} {
-      allow read: if isUser(resource.data.user_id);
-      allow create, write: if isUser(request.resource.data.user_id);
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update: if isOwner();
     }
     
     // ── /topics collection (public) ────────────────────
     match /topics/{topicId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
     
     // ── /lessons collection (public) ───────────────────
     match /lessons/{lessonId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
     
     // ── /friends_list collection ──────────────────────
     match /friends_list/{friendId} {
-      allow read: if isUser(resource.data.requester_id) || 
-                     isUser(resource.data.addressee_id);
-      allow create: if isUser(request.resource.data.requester_id);
-      allow update: if isUser(resource.data.requester_id) || 
-                       isUser(resource.data.addressee_id);
-      allow delete: if isUser(resource.data.requester_id) || 
-                       isUser(resource.data.addressee_id) || isAdmin();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
     
     // ── /doubt_sessions collection ──────────────────
     match /doubt_sessions/{sessionId} {
-      allow read: if isUser(resource.data.user_id);
-      allow create: if isUser(request.resource.data.user_id);
-      allow update, delete: if isUser(resource.data.user_id);
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update, delete: if isOwner();
     }
     
     // ── /doubt_messages collection ──────────────────
     match /doubt_messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated();
     }
     
     // ── /analytics collection (aggregated data) ───────
     match /analytics/{userId} {
       allow read: if isUser(userId);
-      allow write: if isUser(userId) || isAdmin();
+      allow write: if isUser(userId);
     }
     
     // ── /feedback collection ──────────────────────────
     match /feedback/{feedbackId} {
-      // Any authenticated user can submit feedback
-      allow create: if isAuthenticated();
-      // Users can read their own feedback, admins can read all
       allow read: if isAuthenticated();
-      allow update, delete: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
     }
     
     // ── /topic_progress collection ────────────────────
     match /topic_progress/{progressId} {
-      allow read: if isUser(resource.data.user_id);
-      allow write: if isUser(request.resource.data.user_id);
-    }
-    
-    // ── /profiles collection ──────────────────────────
-    match /profiles/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isUser(userId);
-    }
-    
-    // ── /user_preferences collection ──────────────────
-    // Stores onboarding responses, learning style, AI preferences, etc.
-    match /user_preferences/{userId} {
-      allow read: if isUser(userId);
-      allow write: if isUser(userId);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
     }
     
     // ── /materials collection ─────────────────────────
     match /materials/{materialId} {
-      allow read: if isUser(resource.data.user_id);
-      allow create: if isUser(request.resource.data.user_id);
-      allow update: if isUser(resource.data.user_id);
-      allow delete: if isUser(resource.data.user_id);
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update: if isOwner();
+      allow delete: if isOwner();
     }
     
     // ── /analytics_snapshots collection ────────────────
     match /analytics_snapshots/{snapshotId} {
-      allow read: if isUser(resource.data.user_id);
-      allow write: if isUser(request.resource.data.user_id);
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update: if isOwner();
     }
     
     // ── /quiz_results collection ──────────────────────
     match /quiz_results/{resultId} {
-      allow read: if isUser(resource.data.user_id);
-      allow write: if isUser(request.resource.data.user_id);
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update: if isOwner();
     }
 
     // ── /flashcards collection ────────────────────────
     match /flashcards/{cardId} {
-      allow read: if isUser(resource.data.user_id);
-      allow create: if isUser(request.resource.data.user_id);
-      allow update, delete: if isUser(resource.data.user_id);
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update, delete: if isOwner();
     }
     
     // ── /study_plans collection ───────────────────────
     match /study_plans/{planId} {
-      allow read: if isUser(resource.data.user_id);
-      allow create: if isUser(request.resource.data.user_id);
-      allow update, delete: if isUser(resource.data.user_id);
+      allow read: if isOwner();
+      allow create: if isNewOwner();
+      allow update, delete: if isOwner();
     }
 
     // ── /parent_guidance collection ───────────────────
     match /parent_guidance/{noteId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAdmin();
-    }
-    
-    // ── Deny all by default ───────────────────────────
-    match /{document=**} {
-      allow read, write: if false;
+      allow update, delete: if isAuthenticated();
     }
   }
 }
