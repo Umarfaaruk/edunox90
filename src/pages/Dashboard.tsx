@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   BookOpen, MessageCircleQuestion, Gamepad2, Upload, BarChart3,
-  Trophy, Flame, Lightbulb, Bot, AlertTriangle, Zap, BrainCircuit, Network, CalendarDays
+  Trophy, Flame, Lightbulb, Bot, AlertTriangle, BrainCircuit, Network, CalendarDays
 } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -212,9 +212,9 @@ const Dashboard = () => {
         {[
           { icon: MessageCircleQuestion, label: "Ask a Doubt",       to: "/doubts" },
           { icon: Gamepad2,             label: "Practice Arena",      to: "/quiz" },
-          { icon: CalendarDays,         label: "Study Planner",      to: "/planner" },
-          { icon: Zap,                  label: "Quick Tools",        to: "/tools" },
           { icon: BookOpen,             label: "Continue Learning",  to: "/lessons" },
+          { icon: Upload,               label: "Resources",          to: "/materials" },
+          { icon: CalendarDays,         label: "Study Timer",        to: "/timer" },
           { icon: Trophy,               label: "Achievements",       to: "/achievements" },
         ].map((a) => (
           <Link

@@ -1,17 +1,145 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, CheckCircle2, BookOpen, Focus, X, Zap } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  ArrowLeft, ArrowRight, CheckCircle2, BookOpen, Focus, X, Zap,
+  Youtube, Play, StickyNote, Calculator, FileText, Timer, ChevronDown,
+  ChevronUp, Wrench, Plus, Trash2, Pause, RotateCcw, ExternalLink,
+  Sparkles, Loader2
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 import { useDeepFocus } from "@/hooks/useDeepFocus";
 import { awardXP } from "@/lib/studySession";
+import { aiComplete } from "@/lib/aiService";
 import { toast } from "sonner";
 import { doc, getDoc, collection, getDocs, query, where, writeBatch } from "firebase/firestore";
 
 const LESSON_XP = 20; // XP awarded per lesson completion
+
+// ── YouTube URL Parser ──────────────────────────────────────────
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// ── Mini Quick Notes (Study Area) ───────────────────────────────
+const MiniNotes = ({ lessonId }: { lessonId: string }) => {
+  const storageKey = `eduonx_lesson_notes_${lessonId}`;
+  const [notes, setNotes] = useState<{ id: string; text: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) || "[]"); } catch { return []; }
+  });
+  const [draft, setDraft] = useState("");
+
+  const save = useCallback((n: typeof notes) => {
+    setNotes(n);
+    localStorage.setItem(storageKey, JSON.stringify(n));
+  }, [storageKey]);
+
+  const add = () => {
+    if (!draft.trim()) return;
+    save([{ id: Date.now().toString(), text: draft.trim() }, ...notes]);
+    setDraft("");
+    toast.success("Note saved!");
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <Textarea placeholder="Jot a note…" value={draft} onChange={(e) => setDraft(e.target.value)}
+          className="min-h-[50px] resize-none text-sm" onKeyDown={(e) => e.key === "Enter" && e.ctrlKey && add()} />
+      </div>
+      <Button onClick={add} size="sm" disabled={!draft.trim()} className="gap-2 w-full">
+        <Plus className="h-3.5 w-3.5" /> Add Note
+      </Button>
+      <div className="space-y-1.5 max-h-[200px] overflow-y-auto scrollbar-thin">
+        {notes.map((n) => (
+          <div key={n.id} className="bg-muted/50 rounded-lg px-3 py-2 flex items-start gap-2 group">
+            <p className="text-xs text-foreground flex-1 whitespace-pre-wrap">{n.text}</p>
+            <button onClick={() => save(notes.filter(x => x.id !== n.id))} className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Mini Calculator ─────────────────────────────────────────────
+const MiniCalc = () => {
+  const [expr, setExpr] = useState("");
+  const [result, setResult] = useState<string | null>(null);
+  const calc = () => {
+    try {
+      const sanitized = expr.replace(/[^-()\\d/*+.^%\s]/g, '');
+      setResult(String(new Function(`return ${sanitized}`)()));
+    } catch { setResult("Error"); }
+  };
+  return (
+    <div className="space-y-2">
+      <Input placeholder="e.g. (25 * 4) + 100" value={expr} onChange={(e) => setExpr(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && calc()} className="font-mono text-sm h-9" />
+      <Button onClick={calc} size="sm" className="w-full" disabled={!expr.trim()}>Calculate</Button>
+      {result !== null && (
+        <div className="bg-muted/50 rounded-lg px-3 py-2 text-center">
+          <div className="text-lg font-bold text-foreground font-mono">{result}</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── AI Summarizer ───────────────────────────────────────────────
+const AISummarizer = ({ content, videoUrl }: { content: string; videoUrl?: string }) => {
+  const [summary, setSummary] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const summarize = async () => {
+    setLoading(true);
+    try {
+      const text = videoUrl
+        ? `Summarize the key concepts from this lesson content that accompanies a YouTube video (${videoUrl}):\n\n${content.substring(0, 6000)}`
+        : `Summarize the following lesson content into clear, concise bullet points:\n\n${content.substring(0, 6000)}`;
+      const res = await aiComplete({
+        messages: [
+          { role: "system", content: "You are a study assistant. Create concise, well-structured summaries with bullet points." },
+          { role: "user", content: text }
+        ],
+        temperature: 0.4,
+        maxTokens: 1024,
+      });
+      setSummary(res);
+      toast.success("Summary generated!");
+    } catch {
+      toast.error("Failed to generate summary. Try again.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Button onClick={summarize} size="sm" disabled={loading} className="w-full gap-2">
+        {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Summarizing…</> : <><Sparkles className="h-3.5 w-3.5" /> AI Summary</>}
+      </Button>
+      {summary && (
+        <div className="bg-muted/50 rounded-lg px-3 py-2 text-xs text-foreground whitespace-pre-wrap max-h-[250px] overflow-y-auto scrollbar-thin leading-relaxed">
+          {summary}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const LessonViewer = () => {
   const { id: topicId } = useParams();
@@ -20,6 +148,10 @@ const LessonViewer = () => {
   const queryClient = useQueryClient();
   const { isDeepFocus, toggleDeepFocus } = useDeepFocus();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showTools, setShowTools] = useState(false);
+  const [activeTool, setActiveTool] = useState<"notes" | "calc" | "summary">("notes");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
 
   // Fetch topic and lessons from Firestore
   const { data: topic, isLoading: topicLoading } = useQuery({
@@ -107,12 +239,33 @@ const LessonViewer = () => {
   const totalLessons = lessons?.length ?? 0;
   const overallPct = totalLessons > 0 ? Math.round((completedSet.size / totalLessons) * 100) : 0;
 
+  // Auto-detect YouTube links in lesson content
+  useEffect(() => {
+    if (currentLesson?.content) {
+      const ytMatch = currentLesson.content.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      if (ytMatch) {
+        setActiveVideoId(ytMatch[1]);
+      } else {
+        setActiveVideoId(null);
+      }
+    }
+  }, [currentLesson]);
+
+  const handlePasteVideo = () => {
+    const id = extractYouTubeId(videoUrl);
+    if (id) {
+      setActiveVideoId(id);
+      toast.success("Video loaded!");
+    } else {
+      toast.error("Invalid YouTube URL");
+    }
+  };
+
   // Mark complete AND award XP
   const markComplete = useMutation({
     mutationFn: async () => {
       if (!user || !currentLesson || !topicId) return;
       
-      // Update lesson_progress in Firestore
       const batch = writeBatch(db);
       const progressRef = doc(db, "lesson_progress", `${user.uid}_${topicId}`);
       
@@ -143,7 +296,7 @@ const LessonViewer = () => {
 
   if (isLoading) {
     return (
-      <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
+      <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-1.5 w-full" />
@@ -189,11 +342,17 @@ const LessonViewer = () => {
       );
     });
 
-  return (
-    <div className={`p-6 md:p-8 max-w-3xl mx-auto space-y-6 ${isDeepFocus ? "reading-mode" : ""}`}>
+  const toolTabs = [
+    { key: "notes" as const, icon: StickyNote, label: "Notes" },
+    { key: "calc" as const, icon: Calculator, label: "Calculator" },
+    { key: "summary" as const, icon: Sparkles, label: "AI Summary" },
+  ];
 
-      {/* ── Back link + Deep Focus toggle ─────────────────── */}
-      <div className="flex items-center justify-between">
+  return (
+    <div className={`p-4 md:p-8 max-w-6xl mx-auto space-y-5 ${isDeepFocus ? "reading-mode" : ""}`}>
+
+      {/* ── Back link + Actions ───────────────────────────── */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         {!isDeepFocus && (
           <Link
             to="/lessons"
@@ -203,30 +362,43 @@ const LessonViewer = () => {
           </Link>
         )}
 
-        {/* ✅ NEW: Deep Focus Mode toggle */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={toggleDeepFocus}
-          className={`ml-auto gap-2 text-xs ${
-            isDeepFocus
-              ? "border-primary text-primary bg-primary/10"
-              : "text-muted-foreground"
-          }`}
-        >
-          {isDeepFocus ? (
-            <><X className="h-3.5 w-3.5" /> Exit Focus</>
-          ) : (
-            <><Focus className="h-3.5 w-3.5" /> Deep Focus</>
-          )}
-        </Button>
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Quick Tools toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTools(!showTools)}
+            className={`gap-2 text-xs ${showTools ? "border-primary text-primary bg-primary/10" : "text-muted-foreground"}`}
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Quick Tools</span>
+          </Button>
+
+          {/* Deep Focus Mode toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleDeepFocus}
+            className={`gap-2 text-xs ${
+              isDeepFocus
+                ? "border-primary text-primary bg-primary/10"
+                : "text-muted-foreground"
+            }`}
+          >
+            {isDeepFocus ? (
+              <><X className="h-3.5 w-3.5" /> Exit Focus</>
+            ) : (
+              <><Focus className="h-3.5 w-3.5" /> Deep Focus</>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* ── Topic / lesson metadata ───────────────────────── */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-            {(topic?.subjects as { name?: string })?.name ?? "Subject"}
+            {(topic?.subjects as { name?: string })?.name ?? topic?.subject ?? "Subject"}
           </span>
           <span>Lesson {currentIndex + 1} of {totalLessons}</span>
           {isCompleted && (
@@ -235,12 +407,12 @@ const LessonViewer = () => {
             </span>
           )}
         </div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">
+        <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">
           {currentLesson.title}
         </h1>
       </div>
 
-      {/* ── Progress bar (success green per design spec) ─── */}
+      {/* ── Progress bar ─────────────────────────────────── */}
       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
         <div
           className="h-full bg-success rounded-full transition-all duration-500"
@@ -248,35 +420,129 @@ const LessonViewer = () => {
         />
       </div>
 
-      {/* ── Lesson content card ───────────────────────────── */}
-      <div className="bg-card border border-border rounded-xl p-6 md:p-8 space-y-4 shadow-sm">
-        <div className="flex items-center gap-3 pb-4 border-b border-border">
-          <BookOpen className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-foreground">Lesson Content</span>
-          <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-            +{LESSON_XP} XP on complete
-          </span>
+      {/* ── Main content area (responsive grid with tools) ── */}
+      <div className={`grid gap-5 ${showTools ? "lg:grid-cols-[1fr_320px]" : "grid-cols-1"}`}>
+        
+        {/* Left: Lesson + Video */}
+        <div className="space-y-5 min-w-0">
+          
+          {/* ── YouTube Workspace ─────────────────────────── */}
+          <div className="bg-card border border-border rounded-xl p-4 md:p-5 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Youtube className="h-4 w-4 text-red-500" />
+              Video Workspace
+            </div>
+            
+            {activeVideoId ? (
+              <div className="space-y-3">
+                <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${activeVideoId}?rel=0`}
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title="Lesson Video"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setActiveVideoId(null)} className="gap-1 text-xs">
+                    <X className="h-3 w-3" /> Remove Video
+                  </Button>
+                  <a href={`https://youtube.com/watch?v=${activeVideoId}`} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                    <ExternalLink className="h-3 w-3" /> Open on YouTube
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Paste a YouTube URL…"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handlePasteVideo()}
+                  className="h-9 text-sm flex-1"
+                />
+                <Button onClick={handlePasteVideo} size="sm" disabled={!videoUrl.trim()} className="gap-1 flex-shrink-0">
+                  <Play className="h-3.5 w-3.5" /> Load
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Lesson content card ─────────────────────────── */}
+          <div className="bg-card border border-border rounded-xl p-5 md:p-8 space-y-4 shadow-sm">
+            <div className="flex items-center gap-3 pb-4 border-b border-border">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-foreground">Lesson Content</span>
+              <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                +{LESSON_XP} XP on complete
+              </span>
+            </div>
+            <div className="prose prose-sm max-w-none space-y-1">
+              {renderContent(currentLesson.content)}
+            </div>
+          </div>
         </div>
-        <div className="prose prose-sm max-w-none space-y-1">
-          {renderContent(currentLesson.content)}
-        </div>
+
+        {/* Right: Quick Tools Sidebar (only when toggled) */}
+        {showTools && (
+          <div className="space-y-4 animate-in slide-in-from-right-4 duration-200">
+            <div className="bg-card border border-border rounded-xl p-4 space-y-4 sticky top-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground pb-3 border-b border-border">
+                <Wrench className="h-4 w-4 text-primary" />
+                Quick Tools
+              </div>
+
+              {/* Tool tabs */}
+              <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
+                {toolTabs.map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveTool(t.key)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-medium transition-colors ${
+                      activeTool === t.key
+                        ? "bg-card text-primary shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <t.icon className="h-3.5 w-3.5" />
+                    <span className="hidden xl:inline">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Active tool content */}
+              <div className="min-h-[200px]">
+                {activeTool === "notes" && <MiniNotes lessonId={currentLesson.id} />}
+                {activeTool === "calc" && <MiniCalc />}
+                {activeTool === "summary" && (
+                  <AISummarizer
+                    content={currentLesson.content}
+                    videoUrl={activeVideoId ? `https://youtube.com/watch?v=${activeVideoId}` : undefined}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Navigation + Complete actions ─────────────────── */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
         <Button
           variant="outline"
-          className="gap-2"
+          className="gap-2 min-h-[44px]"
           disabled={currentIndex === 0}
           onClick={() => setCurrentIndex((i) => i - 1)}
         >
-          <ArrowLeft className="h-4 w-4" /> Previous
+          <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Previous</span>
         </Button>
 
         {/* Mark complete — primary CTA uses Amber */}
         <Button
           onClick={() => markComplete.mutate()}
-          className={`gap-2 flex-1 ${
+          className={`gap-2 flex-1 min-h-[44px] ${
             isCompleted
               ? "bg-success/10 text-success border border-success/30 hover:bg-success/20"
               : "bg-cta text-cta-foreground hover:bg-cta/90 font-semibold"
@@ -293,17 +559,17 @@ const LessonViewer = () => {
         </Button>
 
         <Button
-          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 min-h-[44px]"
           disabled={currentIndex >= totalLessons - 1}
           onClick={() => setCurrentIndex((i) => i + 1)}
         >
-          Next <ArrowRight className="h-4 w-4" />
+          <span className="hidden sm:inline">Next</span> <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
 
       {/* ── Take a quiz prompt ────────────────────────────── */}
       {overallPct === 100 && (
-        <div className="bg-success/10 border border-success/20 rounded-xl p-5 flex items-center justify-between">
+        <div className="bg-success/10 border border-success/20 rounded-xl p-5 flex items-center justify-between flex-wrap gap-3">
           <div>
             <div className="font-semibold text-foreground text-sm">🎉 All lessons complete!</div>
             <div className="text-xs text-muted-foreground mt-0.5">
@@ -311,7 +577,7 @@ const LessonViewer = () => {
             </div>
           </div>
           <Link to={`/quiz/${topicId}`} state={{ topicTitle: topic?.title ?? "Topic", subjectName: (topic?.subjects as { name?: string })?.name ?? "" }}>
-            <Button className="bg-cta text-cta-foreground hover:bg-cta/90 text-sm">
+            <Button className="bg-cta text-cta-foreground hover:bg-cta/90 text-sm min-h-[44px]">
               Take Quiz
             </Button>
           </Link>

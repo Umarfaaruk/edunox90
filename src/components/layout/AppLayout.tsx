@@ -2,21 +2,20 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, MessageCircleQuestion, Trophy,
   BarChart3, Upload, Settings, User, Flame, Gamepad2, Bot,
-  Timer, Focus, X, ChevronLeft, MessageSquare, Camera
+  Timer, Focus, X, ChevronLeft, MessageSquare, Camera, Menu
 } from "lucide-react";
 import { useDeepFocus } from "@/hooks/useDeepFocus";
 import GlobalTimer from "@/components/GlobalTimer";
+import { useState } from "react";
 
 import eduonxLogo from "@/assets/eduonx-logo.png";
 
 const sidebarLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/planner", icon: Timer, label: "Study Planner" },
-  { to: "/tools", icon: Focus, label: "Quick Tools" },
   { to: "/lessons", icon: BookOpen, label: "Lessons" },
   { to: "/doubts", icon: MessageCircleQuestion, label: "Ask Doubt" },
   { to: "/quiz", icon: Gamepad2, label: "Practice Arena" },
-  { to: "/materials", icon: Upload, label: "Materials" },
+  { to: "/materials", icon: Upload, label: "Resources" },
   { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },
   { to: "/progress", icon: BarChart3, label: "Progress" },
   { to: "/leaderboard", icon: Trophy, label: "Leaderboard" },
@@ -29,15 +28,16 @@ const sidebarLinks = [
 // Mobile nav shows only the 5 most important routes
 const mobileNavLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { to: "/planner", icon: Timer, label: "Planner" },
+  { to: "/lessons", icon: BookOpen, label: "Lessons" },
   { to: "/doubts", icon: MessageCircleQuestion, label: "Ask" },
-  { to: "/tools", icon: Focus, label: "Tools" },
+  { to: "/materials", icon: Upload, label: "Resources" },
   { to: "/materials/tutor", icon: Bot, label: "AI Tutor" },
 ];
 
 const AppLayout = () => {
   const { pathname } = useLocation();
   const { isDeepFocus, disableDeepFocus } = useDeepFocus();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -92,6 +92,42 @@ const AppLayout = () => {
         </aside>
       )}
 
+      {/* ── Mobile hamburger menu overlay ──────────────────────── */}
+      {!isDeepFocus && mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          <aside className="relative w-72 bg-card border-r border-border flex flex-col h-full animate-in slide-in-from-left duration-200">
+            <div className="px-5 py-5 border-b border-border flex items-center justify-between">
+              <img src={eduonxLogo} alt="EduOnx Logo" className="h-[36px] w-auto object-contain" />
+              <button onClick={() => setMobileMenuOpen(false)} className="text-muted-foreground hover:text-foreground p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+              {sidebarLinks.map((link) => {
+                const active =
+                  pathname === link.to ||
+                  (link.to !== "/dashboard" && pathname.startsWith(link.to + "/"));
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all ${active
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      }`}
+                  >
+                    <link.icon className="h-5 w-5 flex-shrink-0" />
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </aside>
+        </div>
+      )}
+
       {/* ── Deep Focus Mode — minimal top bar ──────────────────── */}
       {isDeepFocus && (
         <div className="fixed top-0 left-0 right-0 z-30 h-12 bg-card border-b border-border flex items-center justify-between px-6">
@@ -109,9 +145,22 @@ const AppLayout = () => {
         </div>
       )}
 
+      {/* ── Mobile Top Header (shows hamburger) ───────────────── */}
+      {!isDeepFocus && (
+        <div className="md:hidden fixed top-0 left-0 right-0 z-20 bg-card/95 backdrop-blur-sm border-b border-border flex items-center justify-between px-4 h-14">
+          <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-1 text-muted-foreground hover:text-foreground">
+            <Menu className="h-5 w-5" />
+          </button>
+          <img src={eduonxLogo} alt="EduOnx" className="h-[28px] w-auto object-contain" />
+          <Link to="/profile" className="p-2 -mr-1">
+            <User className="h-5 w-5 text-muted-foreground" />
+          </Link>
+        </div>
+      )}
+
       {/* ── Mobile Bottom Nav (hidden in Deep Focus Mode) ──────── */}
       {!isDeepFocus && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex safe-area-pb">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-sm border-t border-border flex safe-area-pb">
           {mobileNavLinks.map((link) => {
             const active =
               pathname === link.to ||
@@ -120,7 +169,7 @@ const AppLayout = () => {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors ${active ? "text-primary" : "text-muted-foreground"
+                className={`flex-1 flex flex-col items-center gap-1 py-2.5 min-h-[56px] justify-center text-[10px] font-medium transition-colors ${active ? "text-primary" : "text-muted-foreground"
                   }`}
               >
                 <link.icon className="h-5 w-5" />
@@ -135,7 +184,7 @@ const AppLayout = () => {
       <main
         className={`flex-1 ${isDeepFocus
             ? "pt-12 pb-0"                        // Deep Focus: only top-bar offset
-            : "md:ml-64 pb-20 md:pb-0"            // Normal: sidebar offset + mobile nav padding
+            : "pt-14 md:pt-0 md:ml-64 pb-20 md:pb-0"  // Normal: mobile top bar + sidebar offset + mobile nav padding
           }`}
       >
         <Outlet />

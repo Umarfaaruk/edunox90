@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Upload, FileText, X, ArrowRight, Loader2, Search, FolderOpen, Sparkles, HardDrive, LayoutGrid, List, Plus } from "lucide-react";
+import { Upload, FileText, X, ArrowRight, Loader2, Search, FolderOpen, Sparkles, HardDrive, LayoutGrid, List, Plus, Library, BookOpenCheck, ExternalLink } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -480,10 +480,170 @@ const MaterialUpload = () => {
         )}
       </div>
 
+      {/* ── NDLI Digital Library Search ────────────────────────── */}
+      <NDLISearch />
+
       {uploading && (
         <div className="fixed bottom-6 right-6 bg-card border p-4 shadow-lg flex items-center gap-3 z-50 rounded-xl">
           <Loader2 className="h-4 w-4 animate-spin text-accent" />
           <span className="text-sm">{uploadProgress || "Processing file..."}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── NDLI Search Component ─────────────────────────────────────────
+interface NDLIItem {
+  id: string;
+  title: string;
+  author: string;
+  type: string;
+  description: string;
+  thumbnail: string | null;
+  url: string;
+  year: string | null;
+  subject: string | null;
+  language: string;
+}
+
+const NDLISearch = () => {
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState<"all" | "ebook" | "notebook">("all");
+  const [results, setResults] = useState<NDLIItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
+
+  const handleSearch = async () => {
+    if (!query.trim() || query.trim().length < 2) return;
+    setLoading(true);
+    setSearched(true);
+    setFallbackUrl(null);
+
+    try {
+      const resp = await fetch(`/api/ndli?q=${encodeURIComponent(query.trim())}&type=${type}&page=1`);
+      const data = await resp.json();
+
+      if (data.fallback) {
+        setResults([]);
+        setFallbackUrl(data.ndliSearchUrl);
+      } else {
+        setResults(data.items || []);
+        if (data.items?.length === 0) {
+          setFallbackUrl(`https://ndl.iitkgp.ac.in/result?q=${encodeURIComponent(query.trim())}`);
+        }
+      }
+    } catch {
+      setResults([]);
+      setFallbackUrl(`https://ndl.iitkgp.ac.in/result?q=${encodeURIComponent(query.trim())}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 md:p-6 space-y-5">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <Library className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-foreground">NDLI Digital Library</h2>
+          <p className="text-xs text-muted-foreground">Search the National Digital Library of India for eBooks, notebooks & more</p>
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search eBooks, notebooks, journals…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            className="pl-10 h-10"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(["all", "ebook", "notebook"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setType(t)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium border whitespace-nowrap transition-colors capitalize ${
+                type === t
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card border-border text-foreground hover:border-primary/40"
+              }`}
+            >
+              {t === "all" ? "All" : t === "ebook" ? "eBooks" : "Notebooks"}
+            </button>
+          ))}
+          <Button onClick={handleSearch} disabled={loading || !query.trim()} className="gap-2 flex-shrink-0">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            Search
+          </Button>
+        </div>
+      </div>
+
+      {/* Results */}
+      {searched && (
+        <div className="space-y-3">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : results.length > 0 ? (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {results.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-muted/30 border border-border rounded-xl p-4 hover:border-primary/40 hover:shadow-sm transition-all group flex gap-3"
+                >
+                  {item.thumbnail ? (
+                    <img src={item.thumbnail} alt="" className="h-16 w-12 rounded object-cover flex-shrink-0 bg-muted" />
+                  ) : (
+                    <div className="h-16 w-12 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <BookOpenCheck className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">{item.title}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{item.author}{item.year ? ` · ${item.year}` : ""}</div>
+                    {item.subject && <div className="text-[10px] text-muted-foreground mt-0.5">{item.subject}</div>}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">{item.type}</span>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Library className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-40" />
+              <p className="text-sm text-muted-foreground">No results found for "{query}"</p>
+            </div>
+          )}
+
+          {/* Direct NDLI link fallback */}
+          {fallbackUrl && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <div className="text-sm font-medium text-foreground">Search on NDLI directly</div>
+                <div className="text-xs text-muted-foreground">Browse the full National Digital Library catalog</div>
+              </div>
+              <a href={fallbackUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ExternalLink className="h-3.5 w-3.5" /> Open NDLI
+                </Button>
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

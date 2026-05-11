@@ -174,4 +174,39 @@
   .transform-style-preserve-3d { transform-style: preserve-3d; }
   .backface-hidden { backface-visibility: hidden; }
   .rotate-y-180 { transform: rotateY(180deg); }
+
+  /* Line clamping */
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Safe area padding for mobile nav bars */
+  .safe-area-pb { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .safe-area-pt { padding-top: env(safe-area-inset-top, 0px); }
+}
+
+/* ── Mobile Optimizations ──────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Ensure minimum touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Fix horizontal overflow */
+  .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+  body { overflow-x: hidden; }
+
+  /* Responsive text scaling */
+  h1 { font-size: 1.5rem !important; }
+  h2 { font-size: 1.25rem !important; }
+
+  /* Better mobile card padding */
+  .p-6 { padding: 1rem; }
+  .p-8 { padding: 1.25rem; }
+  .md\\:p-8 { padding: 1rem; }
+
+  /* Mobile bottom nav safe area */
+  nav.safe-area-pb { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+
+  /* Fix select dropdowns on mobile */
+  select { font-size: 16px !important; /* prevents iOS zoom */ }
 }

@@ -1,73 +1,78 @@
-# Welcome to your Lovable project
+# EduOnx — AI-Powered Learning Platform
 
-## Project info
+An intelligent learning platform with AI tutoring, study tracking, gamification, and personalized learning paths.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- **Framework**: Vite + React 18 + TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Backend**: Firebase (Auth, Firestore)
+- **AI**: Groq API (Llama 3.3 70B) via server proxy
+- **Charts**: Recharts
+- **Animation**: Framer Motion + GSAP
+- **Deployment**: Vercel
 
-There are several ways of editing your application.
+## Features
 
-**Use Lovable**
+- **AI Tutor** — Chat with an AI tutor about your study materials
+- **Lessons** — Curated learning paths with progress tracking & XP
+- **YouTube Workspace** — Embed videos inside lessons with side-by-side tools
+- **Quick Tools** — Notes, Calculator, AI Summarizer (context-aware in lessons)
+- **Study Planner** — AI-generated study roadmaps (toggle in Lessons)
+- **Practice Arena** — Quiz engine with topic-based assessments
+- **NDLI Library** — Search the National Digital Library of India for eBooks
+- **Progress Dashboard** — Daily/weekly/monthly analytics
+- **Gamification** — XP, streaks, achievements, leaderboards
+- **Deep Focus Mode** — Minimal UI for distraction-free studying
+- **Ask Doubt** — AI-powered doubt solving with image support
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+```bash
+# Install dependencies
+npm install
 
-**Use your preferred IDE**
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your Firebase and Groq API keys
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Project Structure
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+src/
+├── components/       # Shared components (layout, UI, landing)
+├── contexts/         # React contexts (Auth)
+├── hooks/            # Custom hooks (dashboard data, deep focus)
+├── lib/              # Services (AI, Firebase, analytics, utils)
+├── pages/            # Route pages
+│   ├── auth/         # Login, Signup
+│   ├── doubts/       # Ask Doubt, AI Solution, Camera Q&A
+│   ├── lessons/      # Lesson List, Lesson Viewer (with YouTube + Tools)
+│   ├── materials/    # Resource Library, AI Tutor, Flashcards, Study Planner
+│   ├── progress/     # Progress Dashboard
+│   ├── quiz/         # Practice Arena
+│   ├── social/       # Leaderboard, Friends, Achievements
+│   ├── timer/        # Study Timer
+│   └── tools/        # Quick Tools (standalone fallback)
+└── api/              # Vercel serverless functions (Groq proxy, NDLI proxy)
+```
 
-**Use GitHub Codespaces**
+## Environment Variables
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+| Variable | Description |
+|---|---|
+| `VITE_FIREBASE_API_KEY` | Firebase API key |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
+| `VITE_FIREBASE_APP_ID` | Firebase app ID |
+| `GROQ_API_KEY` | Groq API key (server-side only) |
 
-## What technologies are used for this project?
+## License
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+© 2026 EduOnx. All rights reserved.

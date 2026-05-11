@@ -1,4 +1,4 @@
-# Eduonx Timer & AI Tutor Setup Guide
+# EduOnx Timer & AI Tutor Setup Guide
 
 ## ✅ What's Been Fixed
 
@@ -208,4 +208,4 @@ Dashboard → "Materials" → Upload file → "AI Tutor" → Select material
 ---
 
 Generated: April 20, 2026
-Eduonx Platform v1.0
+EduOnx Platform v1.0

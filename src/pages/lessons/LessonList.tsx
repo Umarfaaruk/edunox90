@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, ChevronRight, Search, Calculator, Atom, FlaskConical, Leaf, FileText, Loader2, Sparkles, Plus, Calendar } from "lucide-react";
+import { BookOpen, ChevronRight, Search, Calculator, Atom, FlaskConical, Leaf, FileText, Loader2, Sparkles, Plus, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { db } from "@/lib/firebase";
 import { aiComplete } from "@/lib/aiService";
 import { toast } from "sonner";
 import { doc, setDoc, writeBatch } from "firebase/firestore";
+
+const StudyPlanner = lazy(() => import("@/pages/materials/StudyPlanner"));
 
 const iconMap: Record<string, React.ReactNode> = {
   calculator:     <Calculator    className="h-5 w-5 text-primary" />,
@@ -24,6 +26,7 @@ const LessonList = () => {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [showPlanner, setShowPlanner] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch user materials
@@ -199,12 +202,34 @@ Material Content/Summary: ${material.extracted_text?.substring(0, 5000) || mater
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Lessons</h1>
           <p className="text-muted-foreground text-sm mt-1">Browse topics and continue learning</p>
         </div>
-        <Link to="/planner">
-          <Button variant="outline" className="gap-2 border-primary/20 text-primary hover:bg-primary/10">
-            <Calendar className="h-4 w-4" /> Study Planner
-          </Button>
-        </Link>
+        <button
+          onClick={() => setShowPlanner(!showPlanner)}
+          className="flex items-center gap-3 group"
+          aria-label="Toggle Study Planner"
+        >
+          <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors hidden sm:inline">
+            <CalendarDays className="h-4 w-4 inline mr-1.5 -mt-0.5" />
+            Study Planner
+          </span>
+          <CalendarDays className="h-5 w-5 text-muted-foreground sm:hidden" />
+          <div className={`h-6 w-11 rounded-full transition-colors flex-shrink-0 ${
+            showPlanner ? "bg-primary" : "bg-muted"
+          }`}>
+            <div className={`h-5 w-5 rounded-full bg-card shadow transition-transform ${
+              showPlanner ? "translate-x-5" : "translate-x-0.5"
+            } mt-0.5`} />
+          </div>
+        </button>
       </div>
+
+      {/* Inline Study Planner Panel */}
+      {showPlanner && (
+        <div className="border border-primary/20 rounded-xl overflow-hidden bg-primary/[0.02] animate-in slide-in-from-top-2 duration-300">
+          <Suspense fallback={<div className="p-8 flex justify-center"><Loader2 className="animate-spin h-6 w-6 text-primary" /></div>}>
+            <StudyPlanner />
+          </Suspense>
+        </div>
+      )}
 
       {/* Search + Filter */}
       <div className="flex flex-col sm:flex-row gap-3">
