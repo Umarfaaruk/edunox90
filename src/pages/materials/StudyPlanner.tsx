@@ -156,18 +156,19 @@ Limit to max 14 entries. If more than 14 days, group into weekly milestones.`;
         });
 
         let jsonString = res;
-        if (jsonString.includes("```json")) {
-          jsonString = jsonString.split("```json")[1].split("```")[0];
-        } else if (jsonString.includes("```")) {
-          const parts = jsonString.split("```");
-          if (parts.length >= 3) jsonString = parts[1];
+        const match = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (match) {
+          jsonString = match[1];
         }
 
-        const firstIdx = jsonString.indexOf('[');
-        const lastIdx = jsonString.lastIndexOf(']');
-        if (firstIdx === -1 || lastIdx === -1) throw new Error("Failed to locate JSON array in AI output");
+        const startIdx = jsonString.search(/\[\s*\{/);
+        const endIdx = jsonString.lastIndexOf(']');
+        
+        if (startIdx === -1 || endIdx === -1) {
+          throw new Error("Failed to locate JSON array in AI output");
+        }
 
-        jsonString = jsonString.substring(firstIdx, lastIdx + 1);
+        jsonString = jsonString.substring(startIdx, endIdx + 1);
         schedule = JSON.parse(jsonString);
       } catch (err) {
         lastError = err;

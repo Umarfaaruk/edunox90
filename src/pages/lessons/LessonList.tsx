@@ -138,8 +138,15 @@ Material Content/Summary: ${material.extracted_text?.substring(0, 5000) || mater
         });
 
         let jsonString = res;
-        if (jsonString.includes("```json")) jsonString = jsonString.split("```json")[1].split("```")[0];
-        else if (jsonString.includes("```")) jsonString = jsonString.split("```")[1];
+        const match = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (match) {
+          jsonString = match[1];
+        }
+        const startIdx = jsonString.indexOf('{');
+        const endIdx = jsonString.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1) {
+          jsonString = jsonString.substring(startIdx, endIdx + 1);
+        }
         
         parsed = JSON.parse(jsonString.trim());
         

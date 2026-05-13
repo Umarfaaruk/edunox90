@@ -90,10 +90,21 @@ ${baseInstructions}`;
         });
 
         // Extract JSON from response (handle markdown code blocks)
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error("Failed to parse quiz questions from AI response");
+        let jsonString = text;
+        const match = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (match) {
+          jsonString = match[1];
+        }
 
-        const parsed = JSON.parse(jsonMatch[0]) as Question[];
+        const startIdx = jsonString.search(/\[\s*\{/);
+        const endIdx = jsonString.lastIndexOf(']');
+        
+        if (startIdx === -1 || endIdx === -1) {
+          throw new Error("Failed to parse quiz questions from AI response");
+        }
+        
+        jsonString = jsonString.substring(startIdx, endIdx + 1);
+        const parsed = JSON.parse(jsonString) as Question[];
         if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No questions generated");
 
         // Validate structure
