@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { Timer, Square, Play, Pause } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveStudySession, processRetryQueue } from "@/lib/studySession";
@@ -42,6 +43,7 @@ const MAX_SESSION_SECONDS = 12 * 60 * 60; // 12 hours
 const GlobalTimer = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { pathname } = useLocation();
 
   const [seconds, setSeconds] = useState(0);
   const [running, setRunning] = useState(false);
@@ -118,14 +120,14 @@ const GlobalTimer = () => {
     setRecovered(true);
   }, [sessionKey, recovered]);
 
-  // ── Auto-start on login + process retry queue ──────────────
+  const isStudyPage = pathname.startsWith("/lessons/") || 
+                      pathname.startsWith("/quiz/") || 
+                      pathname.startsWith("/materials") || 
+                      pathname.startsWith("/timer");
+
+  // ── Process retry queue on mount ──────────────
   useEffect(() => {
-    if (user && recovered && !running && !paused) {
-      setRunning(true);
-      if (seconds === 0) {
-        startedAtRef.current = new Date().toISOString();
-      }
-      // Process any previously failed session saves
+    if (user && recovered) {
       processRetryQueue(user.uid).then((saved) => {
         if (saved > 0) {
           toast.success(`Recovered ${saved} previously unsaved session${saved > 1 ? 's' : ''}!`);
@@ -133,9 +135,18 @@ const GlobalTimer = () => {
         }
       }).catch(() => {});
     }
-    // Only run once after recovery
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, recovered]);
+
+  // ── Auto-start when entering a study page ──────────────
+  useEffect(() => {
+    if (user && recovered && isStudyPage && !running && !paused) {
+      setRunning(true);
+      if (seconds === 0) {
+        startedAtRef.current = new Date().toISOString();
+      }
+    }
+  }, [user, recovered, isStudyPage, running, paused, seconds]);
 
   // ── Tick interval ─────────────────────────────────────────
   useEffect(() => {
@@ -511,7 +522,7 @@ const GlobalTimer = () => {
 
   return (
     <div
-      className="fixed top-16 md:top-4 right-4 z-[60] flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg border border-white/10 shadow-xl pointer-events-auto hover:bg-slate-800/90 transition-colors"
+      className="fixed top-[60px] right-3 md:top-auto md:bottom-4 md:left-[72px] md:right-auto z-40 flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg border border-white/10 shadow-xl pointer-events-auto hover:bg-slate-800/90 transition-colors"
       title={`${statusLabel} — ${fmt(seconds)}`}
     >
       <Timer className={`h-4 w-4 ${statusColor}`} />

@@ -27,11 +27,13 @@ import TopicSelection from "./pages/quiz/TopicSelection";
 import QuizPage from "./pages/quiz/QuizPage";
 import QuizResults from "./pages/quiz/QuizResults";
 
+import { lazy, Suspense } from "react";
+
 import MaterialUpload from "./pages/materials/MaterialUpload";
 import AILearning from "./pages/materials/AILearning";
 import AITutor from "./pages/materials/AITutor";
 import Flashcards from "./pages/materials/Flashcards";
-import StudyPlanner from "./pages/materials/StudyPlanner";
+const StudyPlanner = lazy(() => import("./pages/materials/StudyPlanner"));
 import QuickTools from "./pages/tools/QuickTools";
 import ProgressDashboard from "./pages/progress/ProgressDashboard";
 import TimerPage from "./pages/timer/TimerPage";
@@ -106,8 +108,8 @@ const App = () => (
                 <Route path="/materials/flashcards" element={<ErrorBoundary><Flashcards /></ErrorBoundary>} />
 
                 {/* Study Planner — standalone and materials-based */}
-                <Route path="/planner" element={<ErrorBoundary><StudyPlanner /></ErrorBoundary>} />
-                <Route path="/materials/planner" element={<ErrorBoundary><StudyPlanner /></ErrorBoundary>} />
+                <Route path="/planner" element={<ErrorBoundary><Suspense fallback={<div className="p-8 flex justify-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>}><StudyPlanner /></Suspense></ErrorBoundary>} />
+                <Route path="/materials/planner" element={<ErrorBoundary><Suspense fallback={<div className="p-8 flex justify-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>}><StudyPlanner /></Suspense></ErrorBoundary>} />
 
                 {/* Quick Tools */}
                 <Route path="/tools" element={<ErrorBoundary><QuickTools /></ErrorBoundary>} />

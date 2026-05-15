@@ -106,10 +106,14 @@ export default function StudyPlanner() {
     const maxRetries = 3;
     let lastError = null;
 
-    const subjectsList = preferences?.subjects?.join(", ") || profile?.grade_level || "General Studies";
-    const learningStyle = preferences?.learning_style || "practice";
+    // v3 onboarding fields
+    const learnerType = preferences?.learner_type || profile?.learner_type || "Student";
+    const mainPurpose = preferences?.main_purpose || "Exams";
+    const currentGoal = preferences?.current_goal || "Improve academic performance";
+    const goalUrgency = preferences?.goal_urgency || "3–6 months";
+    const learningPreference = preferences?.learning_preference || "Mixed";
+    const studyTimeLabel = preferences?.study_time || "1–2 hours";
     const painPoints = preferences?.pain_points?.join(", ") || "";
-    const goals = preferences?.goals?.join(", ") || "exam preparation";
     const materialContent = planMode === "material" && selectedMaterial
       ? selectedMaterial.extracted_text?.substring(0, 6000) || selectedMaterial.summary || ""
       : "";
@@ -117,37 +121,46 @@ export default function StudyPlanner() {
     while (attempt < maxRetries && !schedule) {
       try {
         attempt++;
-        const prompt = `Act as an expert study planner and learning strategist. Create a personalized ${daysDiff}-day study plan.
+        const maxDailyMinutes = hoursPerDay * 60;
+        const prompt = `You are an expert study planner. Create a ${daysDiff}-day personalized study roadmap.
 
-STUDENT CONTEXT:
-- Grade/Level: ${profile?.grade_level || "Not specified"}
-- Subjects: ${subjectsList}
-- Learning Style: ${learningStyle}
-- Pain Points: ${painPoints}
-- Goals: ${goals}
-- Available Time: ${hoursPerDay} hours per day
+## Student Profile
+- Identity: ${learnerType}
+- Purpose: ${mainPurpose}
+- Current Goal: ${currentGoal}
+- Goal Urgency: ${goalUrgency}
+- Preferred Learning: ${learningPreference}
+- Daily Study Budget: ${studyTimeLabel} (hard cap: ${maxDailyMinutes} minutes/day)
+- Pain Points: ${painPoints || "None specified"}
 - Days Available: ${daysDiff}
-${materialContent ? `\nMATERIAL TO COVER:\n${materialContent}` : ""}
+${materialContent ? `\n## Material to Cover\n${materialContent}` : ""}
 
-REQUIREMENTS:
-- Create a day-by-day schedule with specific, actionable tasks
-- Include revision days (every 3-4 days)
-- Vary task types based on the learning style (${learningStyle})
-- Front-load difficult topics, ease into revision later
-- Each day should have 2-5 tasks
-- Estimate realistic minutes for each day (max ${hoursPerDay * 60} mins)
+## Difficulty Curve (MANDATORY)
+Follow this progression strictly:
+- Days 1–2: **Introductory** — foundational concepts, orientation, easy wins
+- Days 3–5: **Intermediate** — core concepts, moderate practice, pattern recognition
+- Days 6–8: **Advanced** — complex problems, synthesis, application
+- Every 3rd–4th day: **Revision & Consolidation** — spaced review, self-testing
+- Final 1–2 days: **Mock Test / Final Review** — timed practice, gap analysis
 
-Return ONLY a valid JSON array of objects:
+## Time Block Rules
+- Each day MUST have 2–5 specific, actionable tasks (not generic placeholders)
+- estimated_minutes for each day MUST be between 15 and ${maxDailyMinutes}
+- Tasks must be concrete (e.g., "Solve 10 quadratic equations" not "Practice math")
+- Vary task types: reading, practice, note-making, revision, self-testing
+
+Return ONLY a valid JSON array (no markdown, no commentary):
 [
   {
     "day": 1,
-    "title": "Foundation & Core Concepts",
-    "tasks": ["Read Chapter 1 thoroughly", "Create mind map of key terms", "Practice 10 basic problems"],
-    "estimated_minutes": ${hoursPerDay * 60},
+    "title": "Orientation & Foundations",
+    "tasks": ["Read Chapter 1 introduction (20 min)", "Create a mind-map of key terms (15 min)", "Attempt 5 basic practice problems (25 min)"],
+    "estimated_minutes": 60,
     "completed": false
   }
 ]
-Limit to max 14 entries. If more than 14 days, group into weekly milestones.`;
+
+Limit to max 14 entries. If the plan spans more than 14 days, group days into weekly milestone blocks. Each milestone must still contain specific tasks.`;
 
         const res = await aiComplete({
           messages: [{ role: "user", content: prompt }],
@@ -169,7 +182,16 @@ Limit to max 14 entries. If more than 14 days, group into weekly milestones.`;
         }
 
         jsonString = jsonString.substring(startIdx, endIdx + 1);
-        schedule = JSON.parse(jsonString);
+        const parsed = JSON.parse(jsonString) as StudyPlanDay[];
+
+        // Validate & sanitize: enforce day ordering, cap minutes, ensure tasks
+        schedule = parsed.map((d, i) => ({
+          day: d.day ?? i + 1,
+          title: d.title || `Day ${i + 1}`,
+          tasks: Array.isArray(d.tasks) && d.tasks.length > 0 ? d.tasks.slice(0, 5) : ["Review previous material", "Practice key concepts"],
+          estimated_minutes: Math.max(15, Math.min(d.estimated_minutes ?? maxDailyMinutes, maxDailyMinutes)),
+          completed: false,
+        })).sort((a, b) => a.day - b.day).slice(0, 14);
       } catch (err) {
         lastError = err;
         console.warn(`Retry ${attempt} failed:`, err);
@@ -333,33 +355,45 @@ Limit to max 14 entries. If more than 14 days, group into weekly milestones.`;
                 <Target className="h-4 w-4 text-primary" /> Your Learning Profile
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {preferences.subjects?.length > 0 && (
+                {preferences.learner_type && (
                   <div className="bg-muted/50 rounded-lg px-3 py-2">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Subjects</div>
-                    <div className="text-xs text-foreground">{preferences.subjects.slice(0, 3).join(", ")}</div>
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Identity</div>
+                    <div className="text-xs text-foreground">{preferences.learner_type}</div>
                   </div>
                 )}
-                {preferences.learning_style && (
+                {preferences.current_goal && (
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Goal</div>
+                    <div className="text-xs text-foreground">{preferences.current_goal}</div>
+                  </div>
+                )}
+                {preferences.learning_preference && (
                   <div className="bg-muted/50 rounded-lg px-3 py-2">
                     <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Style</div>
-                    <div className="text-xs text-foreground capitalize">{preferences.learning_style}</div>
+                    <div className="text-xs text-foreground">{preferences.learning_preference}</div>
                   </div>
                 )}
-                {preferences.daily_study_time && (
+                {preferences.study_time && (
                   <div className="bg-muted/50 rounded-lg px-3 py-2">
                     <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Daily Time</div>
-                    <div className="text-xs text-foreground">{preferences.daily_study_time}</div>
+                    <div className="text-xs text-foreground">{preferences.study_time}</div>
                   </div>
                 )}
-                {preferences.goals?.length > 0 && (
+                {preferences.goal_urgency && (
                   <div className="bg-muted/50 rounded-lg px-3 py-2">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Goals</div>
-                    <div className="text-xs text-foreground capitalize">{preferences.goals.slice(0, 2).join(", ")}</div>
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Urgency</div>
+                    <div className="text-xs text-foreground">{preferences.goal_urgency}</div>
+                  </div>
+                )}
+                {preferences.pain_points?.length > 0 && (
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Challenges</div>
+                    <div className="text-xs text-foreground">{preferences.pain_points.slice(0, 2).join(", ")}</div>
                   </div>
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground">
-                Plan will be personalized based on your onboarding responses. <Link to="/onboarding" className="text-primary hover:underline">Update preferences →</Link>
+                Your plan is personalized using your onboarding data. <Link to="/onboarding" className="text-primary hover:underline">Update preferences →</Link>
               </p>
             </div>
           )}

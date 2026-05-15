@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, ChevronRight, Search, Calculator, Atom, FlaskConical, Leaf, FileText, Loader2, Sparkles, Plus, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { collection, query, getDocs, where } from "firebase/firestore";
+import { collection, query, getDocs, where, doc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { aiComplete } from "@/lib/aiService";
 import { toast } from "sonner";
-import { doc, setDoc, writeBatch } from "firebase/firestore";
 
 const StudyPlanner = lazy(() => import("@/pages/materials/StudyPlanner"));
 
@@ -113,23 +112,53 @@ const LessonList = () => {
     while (attempt < maxRetries && !parsed) {
       try {
         attempt++;
-        const prompt = `Create a structured, step-by-step course based on this material. 
-Return ONLY a valid JSON object with the following structure:
+        const prompt = `You are an expert curriculum designer. Create a structured, progressive course from the material below.
+
+## Output Format
+Return ONLY a valid JSON object (no markdown wrappers, no commentary):
 {
-  "topic_title": "Course Title",
-  "subject": "Main Subject",
-  "description": "Short description",
+  "topic_title": "Descriptive Course Title",
+  "subject": "Main Subject Area",
+  "description": "2-sentence course overview explaining what students will learn",
   "lessons": [
     {
-      "title": "Lesson 1: Introduction",
-      "content": "Detailed markdown content for the lesson. Use ## headings, bullet points, and clear explanations. Minimum 300 words per lesson."
-    },
-    // Generate exactly 3-5 comprehensive lessons
+      "title": "Lesson 1: [Clear Descriptive Title]",
+      "content": "Full lesson content in markdown (see format below)"
+    }
   ]
 }
 
-Material Name: ${material.file_name}
-Material Content/Summary: ${material.extracted_text?.substring(0, 5000) || material.summary}`;
+## Lesson Content Format (MANDATORY for each lesson)
+Each lesson's "content" field MUST use this markdown structure:
+
+## Learning Objectives
+- Objective 1
+- Objective 2
+
+## Key Concepts
+
+### [Concept Name]
+Clear explanation with **bold** for key terms. Use \`inline code\` for technical terminology.
+
+### [Concept Name]
+Continue with progressive depth.
+
+## Practical Examples
+Concrete, worked examples that illustrate the concepts.
+
+## Summary
+- Bullet-point recap of the lesson's core takeaways.
+
+## Difficulty Progression
+- Lesson 1: Introductory — foundational vocabulary and orientation
+- Lesson 2–3: Intermediate — core theory and guided practice
+- Lesson 4–5: Advanced — synthesis, application, and self-assessment
+
+Generate exactly 4–5 comprehensive lessons. Each lesson MUST be at least 300 words.
+
+## Source Material
+Name: ${material.file_name}
+Content: ${material.extracted_text?.substring(0, 5000) || material.summary}`;
 
         const res = await aiComplete({
           messages: [{ role: "user", content: prompt }],

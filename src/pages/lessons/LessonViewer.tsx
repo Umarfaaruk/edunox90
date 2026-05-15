@@ -1,13 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, ArrowRight, CheckCircle2, BookOpen, Focus, X, Zap,
-  Youtube, Play, StickyNote, Calculator, FileText, Timer, ChevronDown,
-  ChevronUp, Wrench, Plus, Trash2, Pause, RotateCcw, ExternalLink,
-  Sparkles, Loader2
+  Youtube, Play, StickyNote, Calculator, Wrench, Plus, Trash2,
+  ExternalLink, Sparkles, Loader2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +16,7 @@ import { useDeepFocus } from "@/hooks/useDeepFocus";
 import { awardXP } from "@/lib/studySession";
 import { aiComplete } from "@/lib/aiService";
 import { toast } from "sonner";
-import { doc, getDoc, collection, getDocs, query, where, writeBatch } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, orderBy, writeBatch } from "firebase/firestore";
 
 const LESSON_XP = 20; // XP awarded per lesson completion
 
@@ -144,7 +143,6 @@ const AISummarizer = ({ content, videoUrl }: { content: string; videoUrl?: strin
 const LessonViewer = () => {
   const { id: topicId } = useParams();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isDeepFocus, toggleDeepFocus } = useDeepFocus();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -176,7 +174,8 @@ const LessonViewer = () => {
         const lessonsSnap = await getDocs(
           query(
             collection(db, "lessons"),
-            where("topic_id", "==", topicId)
+            where("topic_id", "==", topicId),
+            orderBy("order", "asc")
           )
         );
         return lessonsSnap.docs.map(doc => ({
@@ -316,18 +315,38 @@ const LessonViewer = () => {
     );
   }
 
-  // Simple markdown renderer
+  // Rich markdown renderer with bold, inline code, and link support
+  const renderInline = (text: string) => {
+    // Split on **bold**, `code`, and [text](url) patterns
+    const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/);
+    return parts.map((part, idx) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={idx} className="text-foreground font-semibold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return <code key={idx} className="text-primary bg-primary/10 px-1 py-0.5 rounded text-xs font-mono">{part.slice(1, -1)}</code>;
+      }
+      const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        return <a key={idx} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{linkMatch[1]}</a>;
+      }
+      return part;
+    });
+  };
+
   const renderContent = (content: string) =>
     content.split("\n").map((line, i) => {
       if (line.startsWith("### "))
-        return <h4 key={i} className="text-base font-semibold mt-4 text-foreground">{line.slice(4)}</h4>;
+        return <h4 key={i} className="text-base font-semibold mt-4 text-foreground">{renderInline(line.slice(4))}</h4>;
       if (line.startsWith("## "))
-        return <h3 key={i} className="text-lg font-semibold mt-6 text-foreground">{line.slice(3)}</h3>;
+        return <h3 key={i} className="text-lg font-semibold mt-6 text-foreground">{renderInline(line.slice(3))}</h3>;
+      if (line.startsWith("# "))
+        return <h2 key={i} className="text-xl font-bold mt-6 text-foreground">{renderInline(line.slice(2))}</h2>;
       if (line.startsWith("```") || line === "```") return null;
       if (line.startsWith("- "))
-        return <li key={i} className="text-muted-foreground ml-4 leading-relaxed">{line.slice(2)}</li>;
+        return <li key={i} className="text-muted-foreground ml-4 leading-relaxed">{renderInline(line.slice(2))}</li>;
       if (/^\d+\.\s/.test(line))
-        return <li key={i} className="text-muted-foreground ml-4 list-decimal leading-relaxed">{line.replace(/^\d+\.\s/, "")}</li>;
+        return <li key={i} className="text-muted-foreground ml-4 list-decimal leading-relaxed">{renderInline(line.replace(/^\d+\.\s/, ""))}</li>;
       if (line.trim() === "") return <br key={i} />;
       if (line.startsWith("  "))
         return (
@@ -337,7 +356,7 @@ const LessonViewer = () => {
         );
       return (
         <p key={i} className="text-muted-foreground leading-relaxed">
-          {line}
+          {renderInline(line)}
         </p>
       );
     });
