@@ -120,9 +120,11 @@ const GlobalTimer = () => {
     setRecovered(true);
   }, [sessionKey, recovered]);
 
-  const isStudyPage = pathname.startsWith("/lessons/") || 
-                      pathname.startsWith("/quiz/") || 
+  const isStudyPage = pathname.startsWith("/lessons") || 
+                      pathname.startsWith("/quiz") || 
                       pathname.startsWith("/materials") || 
+                      pathname.startsWith("/doubts") ||
+                      pathname.startsWith("/planner") ||
                       pathname.startsWith("/timer");
 
   // ── Process retry queue on mount ──────────────

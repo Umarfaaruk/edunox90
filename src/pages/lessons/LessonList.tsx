@@ -112,58 +112,34 @@ const LessonList = () => {
     while (attempt < maxRetries && !parsed) {
       try {
         attempt++;
-        const prompt = `You are an expert curriculum designer. Create a structured, progressive course from the material below.
+        const prompt = `Create a structured course from this material. Return ONLY valid JSON, no markdown wrappers.
 
-## Output Format
-Return ONLY a valid JSON object (no markdown wrappers, no commentary):
 {
-  "topic_title": "Descriptive Course Title",
-  "subject": "Main Subject Area",
-  "description": "2-sentence course overview explaining what students will learn",
+  "topic_title": "Course Title",
+  "subject": "Subject",
+  "description": "Short description",
   "lessons": [
     {
-      "title": "Lesson 1: [Clear Descriptive Title]",
-      "content": "Full lesson content in markdown (see format below)"
+      "title": "Lesson 1: Title",
+      "content": "Lesson content in markdown with ## headings, **bold** terms, bullet points. Include key concepts, examples, and a summary."
     }
   ]
 }
 
-## Lesson Content Format (MANDATORY for each lesson)
-Each lesson's "content" field MUST use this markdown structure:
+Rules:
+- Generate exactly 3-4 lessons (not more)
+- Each lesson: 150-250 words with ## headings and bullet points
+- Progress from basics to advanced
+- Use **bold** for key terms
+- Content must be specific to the material, not generic
 
-## Learning Objectives
-- Objective 1
-- Objective 2
-
-## Key Concepts
-
-### [Concept Name]
-Clear explanation with **bold** for key terms. Use \`inline code\` for technical terminology.
-
-### [Concept Name]
-Continue with progressive depth.
-
-## Practical Examples
-Concrete, worked examples that illustrate the concepts.
-
-## Summary
-- Bullet-point recap of the lesson's core takeaways.
-
-## Difficulty Progression
-- Lesson 1: Introductory — foundational vocabulary and orientation
-- Lesson 2–3: Intermediate — core theory and guided practice
-- Lesson 4–5: Advanced — synthesis, application, and self-assessment
-
-Generate exactly 4–5 comprehensive lessons. Each lesson MUST be at least 300 words.
-
-## Source Material
-Name: ${material.file_name}
-Content: ${material.extracted_text?.substring(0, 5000) || material.summary}`;
+Material: ${material.file_name}
+${material.extracted_text?.substring(0, 4000) || material.summary}`;
 
         const res = await aiComplete({
           messages: [{ role: "user", content: prompt }],
           temperature: 0.7,
-          maxTokens: 4000,
+          maxTokens: 4096,
         });
 
         let jsonString = res;
