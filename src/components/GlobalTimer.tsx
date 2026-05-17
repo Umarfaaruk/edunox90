@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { Timer, Square, Play, Pause } from "lucide-react";
+import { Timer, Square, Play, Pause, GripVertical } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveStudySession, processRetryQueue } from "@/lib/studySession";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,6 +50,12 @@ const GlobalTimer = () => {
   const [paused, setPaused] = useState(false); // True when auto-paused by visibility/blur
   const [saving, setSaving] = useState(false);
   const [recovered, setRecovered] = useState(false);
+
+  // Draggable position state
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
+  const timerRef = useRef<HTMLDivElement>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<string>(new Date().toISOString());
@@ -522,11 +528,103 @@ const GlobalTimer = () => {
 
   if (!user) return null;
 
+  // Restore saved position from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedPos = localStorage.getItem('eduonx_timer_pos');
+      if (savedPos) {
+        const parsed = JSON.parse(savedPos);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          setPosition(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Drag handlers
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const rect = timerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    dragStartRef.current = {
+      x: clientX,
+      y: clientY,
+      posX: rect.left,
+      posY: rect.top,
+    };
+    setIsDragging(true);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!dragStartRef.current) return;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      const deltaX = clientX - dragStartRef.current.x;
+      const deltaY = clientY - dragStartRef.current.y;
+
+      const newX = Math.max(0, Math.min(window.innerWidth - 200, dragStartRef.current.posX + deltaX));
+      const newY = Math.max(0, Math.min(window.innerHeight - 40, dragStartRef.current.posY + deltaY));
+
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleEnd = () => {
+      setIsDragging(false);
+      dragStartRef.current = null;
+      // Save position
+      if (position) {
+        try { localStorage.setItem('eduonx_timer_pos', JSON.stringify(position)); } catch {}
+      }
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
+    };
+  }, [isDragging, position]);
+
+  const timerStyle: React.CSSProperties = position
+    ? {
+        position: 'fixed',
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        right: 'auto',
+        bottom: 'auto',
+        cursor: isDragging ? 'grabbing' : 'grab',
+        userSelect: 'none',
+      }
+    : { cursor: 'grab', userSelect: 'none' as const };
+
   return (
     <div
-      className="fixed top-[60px] right-3 md:top-auto md:bottom-4 md:left-[72px] md:right-auto z-40 flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg border border-white/10 shadow-xl pointer-events-auto hover:bg-slate-800/90 transition-colors"
-      title={`${statusLabel} — ${fmt(seconds)}`}
+      ref={timerRef}
+      className={`${position ? '' : 'fixed top-[60px] right-3 md:top-auto md:bottom-4 md:left-[72px] md:right-auto'} z-40 flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg border border-white/10 shadow-xl pointer-events-auto hover:bg-slate-800/90 transition-colors`}
+      style={timerStyle}
+      title={`${statusLabel} — ${fmt(seconds)} — Drag to reposition`}
     >
+      {/* Drag handle */}
+      <div
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
+        className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-300 transition-colors -ml-1 mr-0.5"
+        title="Drag to move"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </div>
       <Timer className={`h-4 w-4 ${statusColor}`} />
       <span className="font-mono text-sm font-bold tracking-wider tabular-nums min-w-[48px] text-center">
         {fmt(seconds)}

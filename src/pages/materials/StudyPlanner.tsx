@@ -36,6 +36,7 @@ export default function StudyPlanner() {
   const [hoursPerDay, setHoursPerDay] = useState(2);
   const [planMode, setPlanMode] = useState<"smart" | "material">("smart");
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [showCreationForm, setShowCreationForm] = useState(false);
 
   // Load user preferences from onboarding
   const { data: preferences } = useQuery({
@@ -212,6 +213,7 @@ Limit to max 14 entries. If the plan spans more than 14 days, group days into we
       });
 
       toast.success("🎯 Smart Study Plan generated!");
+      setShowCreationForm(false);
       refetchPlans();
     } catch (error) {
       console.error(error);
@@ -251,7 +253,7 @@ Limit to max 14 entries. If the plan spans more than 14 days, group days into we
       </div>
 
       {/* Active Plan Display */}
-      {activePlan ? (
+      {activePlan && !showCreationForm ? (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
           {/* Plan summary card */}
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-3">
@@ -264,7 +266,7 @@ Limit to max 14 entries. If the plan spans more than 14 days, group days into we
                 <span className="text-xs text-muted-foreground">
                   Target: {new Date(activePlan.target_date).toLocaleDateString()}
                 </span>
-                <Button variant="outline" size="sm" onClick={() => { setPlanMode("smart"); /* allow new plan creation below */ }}>
+                <Button variant="outline" size="sm" onClick={() => { setPlanMode("smart"); setShowCreationForm(true); }}>
                   <RefreshCw className="h-3.5 w-3.5 mr-1" /> New Plan
                 </Button>
               </div>
@@ -326,6 +328,12 @@ Limit to max 14 entries. If the plan spans more than 14 days, group days into we
       ) : (
         // ── No active plan — Plan creation UI ──────────────────
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {/* Back to active plan button */}
+          {activePlan && showCreationForm && (
+            <Button variant="outline" size="sm" onClick={() => setShowCreationForm(false)} className="gap-2">
+              ← Back to Active Plan
+            </Button>
+          )}
           {/* Mode selector */}
           <div className="grid grid-cols-2 gap-3">
             <button onClick={() => { setPlanMode("smart"); setSelectedMaterial(null); }}

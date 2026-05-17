@@ -1,4 +1,4 @@
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Calendar, FileText, Flame, BarChart3, Target, Users, Send } from "lucide-react";
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Calendar, FileText, Flame, BarChart3, Target, Users, Send, BookOpen, MessageCircleQuestion, Gamepad2, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -16,6 +16,9 @@ const ProgressDashboard = () => {
   const { streak, avgScore, progressAnalytics, weakTopics, isLoading } = useDashboardData();
   const [isParentMode, setIsParentMode] = useState(false);
   const [guidanceText, setGuidanceText] = useState("");
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const [dayDetails, setDayDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   const { data: guidanceNotes, refetch: refetchNotes } = useQuery({
     queryKey: ["parent-guidance", user?.uid],
@@ -248,27 +251,160 @@ const ProgressDashboard = () => {
       {/* Day-wise records */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h3 className="font-semibold text-foreground mb-1">Day-wise Study Records (Last 30 Days)</h3>
-        <p className="text-xs text-muted-foreground mb-4">Track daily consistency and study patterns.</p>
+        <p className="text-xs text-muted-foreground mb-4">Click on a date to view all concepts you learned that day.</p>
         {(dayWiseRecords ?? []).length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {dayWiseRecords.map((entry: { date: string; minutes: number; sessions?: number }) => (
-              <div key={entry.date} className="rounded-lg border border-border px-4 py-3 bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-foreground">{entry.date}</div>
-                  {entry.sessions && (
-                    <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                      {entry.sessions} session{entry.sessions !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">{entry.minutes} minutes studied</div>
-                {/* Mini progress bar */}
-                <div className="h-1 bg-muted rounded-full mt-2 overflow-hidden">
-                  <div
-                    className="h-full bg-accent rounded-full transition-all"
-                    style={{ width: `${Math.min(100, (entry.minutes / 60) * 100)}%` }}
-                  />
-                </div>
+              <div key={entry.date}>
+                <button
+                  onClick={async () => {
+                    if (expandedDate === entry.date) {
+                      setExpandedDate(null);
+                      setDayDetails(null);
+                      return;
+                    }
+                    setExpandedDate(entry.date);
+                    setLoadingDetails(true);
+                    try {
+                      // Fetch lessons completed on this date
+                      const lessonsSnap = await getDocs(
+                        query(collection(db, "lesson_progress"), where("user_id", "==", user?.uid))
+                      );
+                      const dayLessons: string[] = [];
+                      lessonsSnap.forEach(d => {
+                        const data = d.data();
+                        if (data.updated_at) {
+                          const updatedDate = data.updated_at?.toDate?.() ?? new Date(data.updated_at);
+                          if (updatedDate.toISOString().slice(0, 10) === entry.date) {
+                            dayLessons.push(...(data.completed_lessons || []));
+                          }
+                        }
+                      });
+
+                      // Fetch quiz attempts on this date
+                      const quizSnap = await getDocs(
+                        query(collection(db, "quiz_attempts"), where("user_id", "==", user?.uid))
+                      );
+                      const dayQuizzes: { topic: string; score: number; total: number }[] = [];
+                      quizSnap.forEach(d => {
+                        const data = d.data();
+                        const createdAt = data.created_at?.toDate?.() ?? new Date(data.created_at);
+                        if (createdAt.toISOString().slice(0, 10) === entry.date) {
+                          dayQuizzes.push({
+                            topic: data.topic_title || "General",
+                            score: data.score || 0,
+                            total: data.total_questions || 0,
+                          });
+                        }
+                      });
+
+                      // Fetch doubt sessions on this date
+                      const doubtsSnap = await getDocs(
+                        query(collection(db, "doubt_sessions"), where("user_id", "==", user?.uid))
+                      );
+                      const dayDoubts: string[] = [];
+                      doubtsSnap.forEach(d => {
+                        const data = d.data();
+                        const createdAt = data.created_at ? new Date(data.created_at) : null;
+                        if (createdAt && createdAt.toISOString().slice(0, 10) === entry.date) {
+                          dayDoubts.push(data.question_preview || "Question");
+                        }
+                      });
+
+                      setDayDetails({ lessons: dayLessons, quizzes: dayQuizzes, doubts: dayDoubts });
+                    } catch (err) {
+                      console.error("[Progress] Failed to load day details:", err);
+                      setDayDetails({ lessons: [], quizzes: [], doubts: [] });
+                    } finally {
+                      setLoadingDetails(false);
+                    }
+                  }}
+                  className={`rounded-lg border px-4 py-3 text-left w-full transition-all ${
+                    expandedDate === entry.date
+                      ? 'border-primary/40 bg-primary/5 shadow-sm'
+                      : 'border-border bg-muted/30 hover:border-primary/20 hover:bg-muted/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-foreground">{entry.date}</div>
+                    <div className="flex items-center gap-2">
+                      {entry.sessions && (
+                        <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                          {entry.sessions} session{entry.sessions !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {expandedDate === entry.date ? (
+                        <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">{entry.minutes} minutes studied</div>
+                  {/* Mini progress bar */}
+                  <div className="h-1 bg-muted rounded-full mt-2 overflow-hidden">
+                    <div
+                      className="h-full bg-accent rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (entry.minutes / 60) * 100)}%` }}
+                    />
+                  </div>
+                </button>
+
+                {/* Expanded day details */}
+                {expandedDate === entry.date && (
+                  <div className="mt-2 rounded-lg border border-primary/20 bg-card p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {loadingDetails ? (
+                      <div className="text-xs text-muted-foreground text-center py-4">Loading concepts…</div>
+                    ) : dayDetails ? (
+                      <>
+                        {/* Lessons */}
+                        {dayDetails.lessons.length > 0 && (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                              <BookOpen className="h-3.5 w-3.5 text-primary" /> Lessons Completed
+                            </div>
+                            {dayDetails.lessons.map((lessonId: string, i: number) => (
+                              <div key={i} className="text-xs text-muted-foreground pl-5">• Lesson: {lessonId}</div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Quizzes */}
+                        {dayDetails.quizzes.length > 0 && (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                              <Gamepad2 className="h-3.5 w-3.5 text-accent" /> Quizzes Taken
+                            </div>
+                            {dayDetails.quizzes.map((q: any, i: number) => (
+                              <div key={i} className="text-xs text-muted-foreground pl-5">
+                                • {q.topic} — Score: {q.score}/{q.total} ({q.total > 0 ? Math.round((q.score / q.total) * 100) : 0}%)
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Doubts */}
+                        {dayDetails.doubts.length > 0 && (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                              <MessageCircleQuestion className="h-3.5 w-3.5 text-cta" /> Doubts Asked
+                            </div>
+                            {dayDetails.doubts.map((d: string, i: number) => (
+                              <div key={i} className="text-xs text-muted-foreground pl-5 truncate">• {d}</div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* No data */}
+                        {dayDetails.lessons.length === 0 && dayDetails.quizzes.length === 0 && dayDetails.doubts.length === 0 && (
+                          <div className="text-xs text-muted-foreground text-center py-2">
+                            Study sessions recorded, but no specific lesson/quiz activity tracked for this date.
+                          </div>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                )}
               </div>
             ))}
           </div>

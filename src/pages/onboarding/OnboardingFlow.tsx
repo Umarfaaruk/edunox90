@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -126,6 +127,7 @@ const startTimesList = [
 const OnboardingFlow = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [stage, setStage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -225,7 +227,10 @@ const OnboardingFlow = () => {
       }, { merge: true });
 
       toast.success("Welcome to EduOnx! 🚀");
-      navigate("/dashboard");
+      // Invalidate the profile cache so ProtectedRoute sees onboarding_completed: true
+      queryClient.invalidateQueries({ queryKey: ["profile-onboarding-check", user.uid] });
+      queryClient.invalidateQueries({ queryKey: ["profile", user.uid] });
+      navigate("/dashboard", { replace: true });
     } catch (err: any) {
       console.error("Onboarding Error:", err);
       toast.error(err.message || "Failed to save profile");

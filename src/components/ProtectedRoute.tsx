@@ -1,12 +1,24 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useEffect } from "react";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const queryClient = useQueryClient();
+
+  // Invalidate profile cache when navigating away from onboarding
+  // This ensures the onboarding_completed flag is fresh after the user finishes onboarding
+  const isOnboardingPage = location.pathname.startsWith("/onboarding");
+  useEffect(() => {
+    // When navigating FROM onboarding TO another page, refetch profile
+    if (!isOnboardingPage && user) {
+      queryClient.invalidateQueries({ queryKey: ["profile-onboarding-check", user.uid] });
+    }
+  }, [isOnboardingPage, user, queryClient]);
 
   // Check if user has completed onboarding
   const { data: profile, isLoading: profileLoading, isError } = useQuery({
@@ -17,8 +29,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       return snap.exists() ? snap.data() : null;
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes to avoid repeated checks
-    retry: 1, // Only retry once to avoid blocking the user
+    staleTime: 1000 * 30, // Cache for 30 seconds — short enough to catch post-onboarding writes
+    retry: 1,
+    refetchOnWindowFocus: true,
   });
 
   if (loading || (user && profileLoading)) {
@@ -45,7 +58,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   // Redirect to onboarding if profile doesn't exist or onboarding not completed
   // (skip if already on the onboarding page to avoid redirect loop)
-  const isOnboardingPage = location.pathname.startsWith("/onboarding");
   if (!isOnboardingPage && (!profile || !profile.onboarding_completed)) {
     return <Navigate to="/onboarding" replace />;
   }

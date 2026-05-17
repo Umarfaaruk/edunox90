@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Sparkles, BookOpen, Calculator, Atom, History, Paperclip, Image, X, FileText } from "lucide-react";
+import { Send, Sparkles, BookOpen, Calculator, Atom, History, Paperclip, Image, X, FileText, Youtube, Link2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
@@ -19,6 +19,7 @@ const DoubtInput = () => {
   const [question, setQuestion] = useState("");
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch recent doubts from Firestore
@@ -127,6 +128,11 @@ const DoubtInput = () => {
       if (attachedFile && attachedFile.type === "application/pdf") {
         fullQuestion = `[Attached file: ${attachedFile.name}]\n\n${fullQuestion}`;
       }
+
+      // If a YouTube URL is provided, include it in the question context
+      if (youtubeUrl.trim()) {
+        fullQuestion = `[YouTube Video: ${youtubeUrl.trim()}]\n\nPlease answer the following question using information from this YouTube video:\n\n${fullQuestion}`;
+      }
       
       navigate("/doubts/solution", { state: { question: fullQuestion } });
     }
@@ -182,6 +188,35 @@ const DoubtInput = () => {
           </div>
         )}
 
+        {/* YouTube URL Input */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Youtube className="h-4 w-4 text-red-500" />
+            <span className="font-medium">YouTube Video Reference (Optional)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="url"
+                placeholder="Paste a YouTube link to ask questions about it…"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                className="w-full h-10 pl-10 pr-3 text-sm bg-muted/50 border border-border rounded-lg outline-none focus:border-primary/40 text-foreground placeholder:text-muted-foreground transition-colors"
+              />
+            </div>
+            {youtubeUrl && (
+              <button onClick={() => setYoutubeUrl("")} className="p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {youtubeUrl && (
+            <p className="text-[10px] text-muted-foreground">
+              Your question will reference this video. The AI will use the video context to provide answers.
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           {/* Attachment buttons */}
           <input 

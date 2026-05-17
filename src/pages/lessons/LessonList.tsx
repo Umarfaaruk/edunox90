@@ -101,6 +101,14 @@ const LessonList = () => {
 
   const handleGenerateCourse = async (material: any) => {
     if (!user) return;
+    
+    // Validate material has content to work with
+    const materialContent = material.extracted_text?.substring(0, 5000) || material.summary || "";
+    if (!materialContent || materialContent.length < 50) {
+      toast.error("This material doesn't have enough content to generate a course. Try uploading a more detailed file.");
+      return;
+    }
+    
     setGeneratingFor(material.id);
     toast.info("Generating your AI Course. This may take a minute...");
     
@@ -112,54 +120,62 @@ const LessonList = () => {
     while (attempt < maxRetries && !parsed) {
       try {
         attempt++;
-        const prompt = `Create a structured course from this material. Return ONLY valid JSON, no markdown wrappers.
+        const prompt = `Create a structured course from the material below. Return ONLY a valid JSON object (no markdown wrappers, no commentary).
 
-{
-  "topic_title": "Course Title",
-  "subject": "Subject",
-  "description": "Short description",
-  "lessons": [
-    {
-      "title": "Lesson 1: Title",
-      "content": "Lesson content in markdown with ## headings, **bold** terms, bullet points. Include key concepts, examples, and a summary."
-    }
-  ]
-}
+JSON format:
+{"topic_title":"string","subject":"string","description":"string","lessons":[{"title":"string","content":"string"}]}
 
 Rules:
-- Generate exactly 3-4 lessons (not more)
-- Each lesson: 150-250 words with ## headings and bullet points
-- Progress from basics to advanced
-- Use **bold** for key terms
-- Content must be specific to the material, not generic
+- topic_title: concise course name based on the material
+- subject: the academic subject area
+- description: 1-2 sentence summary
+- lessons: exactly 3-4 lessons
+- Each lesson content: 150-300 words using ## headings, **bold** key terms, and bullet points
+- Progress from fundamentals to advanced
+- Content must be SPECIFIC to the material, not generic
 
-Material: ${material.file_name}
-${material.extracted_text?.substring(0, 4000) || material.summary}`;
+Material filename: ${material.file_name}
+Material content:
+${materialContent}`;
 
         const res = await aiComplete({
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.7,
+          temperature: 0.4,
           maxTokens: 4096,
         });
 
         let jsonString = res;
+        // Strip markdown code blocks
         const match = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (match) {
           jsonString = match[1];
         }
+        // Extract JSON object
         const startIdx = jsonString.indexOf('{');
         const endIdx = jsonString.lastIndexOf('}');
-        if (startIdx !== -1 && endIdx !== -1) {
-          jsonString = jsonString.substring(startIdx, endIdx + 1);
+        if (startIdx === -1 || endIdx === -1) {
+          throw new Error("No JSON object found in AI response");
         }
+        jsonString = jsonString.substring(startIdx, endIdx + 1);
         
         parsed = JSON.parse(jsonString.trim());
         
-        if (!parsed.lessons || !parsed.lessons.length) throw new Error("Invalid format");
+        // Validate structure
+        if (!parsed.topic_title || !parsed.lessons || !Array.isArray(parsed.lessons) || parsed.lessons.length === 0) {
+          throw new Error("Invalid course structure — missing title or lessons");
+        }
+        
+        // Validate each lesson has content
+        parsed.lessons = parsed.lessons.filter((l: any) => l && l.title && l.content);
+        if (parsed.lessons.length === 0) {
+          throw new Error("No valid lessons in generated course");
+        }
       } catch (err) {
         lastError = err;
-        console.warn(`Retry ${attempt} failed:`, err);
+        console.warn(`Course generation retry ${attempt} failed:`, err);
         parsed = null;
+        // Small delay before retry
+        if (attempt < maxRetries) await new Promise(r => setTimeout(r, 1000));
       }
     }
 
@@ -171,10 +187,10 @@ ${material.extracted_text?.substring(0, 4000) || material.summary}`;
       
       batch.set(newTopicRef, {
         title: parsed.topic_title,
-        subject: parsed.subject,
-        subjectName: parsed.subject,
+        subject: parsed.subject || "General",
+        subjectName: parsed.subject || "General",
         subjectIcon: "file-text",
-        description: parsed.description,
+        description: parsed.description || "",
         lesson_count: parsed.lessons.length,
         is_custom: true,
         material_id: material.id,
@@ -194,7 +210,7 @@ ${material.extracted_text?.substring(0, 4000) || material.summary}`;
       });
 
       await batch.commit();
-      toast.success("AI Course generated successfully!");
+      toast.success(`AI Course "${parsed.topic_title}" generated with ${parsed.lessons.length} lessons!`);
       queryClient.invalidateQueries({ queryKey: ["topics", user.uid] });
       setFilter("Your Courses");
     } catch (error) {
